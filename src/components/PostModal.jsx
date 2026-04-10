@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { PILLAR_COLORS, PILLARS, FORMATS, STATUSES, formatIcon } from '../constants';
+import { PILLAR_COLORS } from '../constants';
+import { uploadAttachment, deleteAttachment } from '../services/storage';
 
 // Mapa de classes de cor para pills de formato e status
 const FORMAT_CLS = {
@@ -15,36 +16,126 @@ const STATUS_CLS = {
   'Publicado':   'status-publicado',
 };
 
-export default function PostModal({ post, onSave, onDelete, onClose }) {
+// ─── ManageGroup ─────────────────────────────────────────────────────────────
+// Inline sub-component para gerenciar uma lista de opções (renomear, excluir, adicionar)
+function ManageGroup({ items, onAdd, onDelete, onRename, colorMap }) {
+  const [newName, setNewName] = useState('');
+  const [renamingIndex, setRenamingIndex] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const startRename = (idx) => {
+    setRenamingIndex(idx);
+    setRenameValue(items[idx]);
+  };
+
+  const commitRename = (idx) => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== items[idx]) {
+      onRename(items[idx], trimmed);
+    }
+    setRenamingIndex(null);
+  };
+
+  const handleAdd = () => {
+    const trimmed = newName.trim();
+    if (trimmed && !items.includes(trimmed)) {
+      onAdd(trimmed);
+      setNewName('');
+    }
+  };
+
+  return (
+    <div className="group-manager">
+      {items.map((item, idx) => {
+        const pc = colorMap?.[item];
+        return (
+          <div key={item} className="manager-row">
+            {renamingIndex === idx ? (
+              <input
+                className="manager-rename-input"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={() => commitRename(idx)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitRename(idx); if (e.key === 'Escape') setRenamingIndex(null); }}
+                autoFocus
+              />
+            ) : (
+              <span
+                className={`manager-item-label ${pc ? pc.cls : ''}`}
+                onClick={() => startRename(idx)}
+                title="Clique para renomear"
+              >
+                {item}
+              </span>
+            )}
+            <button className="manager-delete" onClick={() => onDelete(item)} title="Excluir">×</button>
+          </div>
+        );
+      })}
+      <div className="manager-add-row">
+        <input
+          className="manager-add-input"
+          placeholder="Nova opção..."
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+        />
+        <button className="manager-add-btn" onClick={handleAdd}>+ Adicionar</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── PostModal ────────────────────────────────────────────────────────────────
+export default function PostModal({
+  post, onSave, onDelete, onClose,
+  availableTags, onAddTag, onDeleteTag, onRenameTag,
+  availableFormats, onAddFormat, onDeleteFormat, onRenameFormat,
+  availableStatuses, onAddStatus, onDeleteStatus, onRenameStatus,
+}) {
   const isNew = post?.id === null;
 
-  // formRef garante que callbacks de blur/click sempre acessem o estado mais recente
   const [form, setForm] = useState(() => post ?? {});
   const formRef = useRef(form);
 
   const [notesEditing, setNotesEditing] = useState(false);
   const [notesDraft, setNotesDraft] = useState(post?.notes ?? '');
 
-  // Erros de validação (só usados no modo "Criar Post")
+  const [managingTags, setManagingTags] = useState(false);
+  const [managingFormats, setManagingFormats] = useState(false);
+  const [managingStatuses, setManagingStatuses] = useState(false);
+
+  const [showHistory, setShowHistory] = useState(false);
+
   const [errors, setErrors] = useState({});
   const fileInputRef = useRef(null);
 
   if (!post) return null;
 
+  // ─── FORMATAÇÃO DE DATA/HORA ────────────────────────────────────────────────
+  const fmtTimestamp = (iso) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+    } catch {
+      return iso;
+    }
+  };
+
   // ─── HELPER DE SAVE ────────────────────────────────────────────────────────
-  // Atualiza um ou mais campos e dispara auto-save para posts existentes
   const saveFields = (updates) => {
     const newForm = { ...formRef.current, ...updates };
     formRef.current = newForm;
     setForm(newForm);
-    if (newForm.id) onSave(newForm); // auto-save: apenas posts existentes
+    if (newForm.id) onSave(newForm);
   };
 
   const saveField = (key, value) => saveFields({ [key]: value });
 
   // ─── TÍTULO ───────────────────────────────────────────────────────────────
-  // onChange: atualiza estado local sem auto-save (evita salvar a cada tecla)
-  // onBlur:   auto-salva quando o usuário sai do campo
   const handleTitleChange = (e) => {
     const val = e.target.value;
     formRef.current = { ...formRef.current, title: val };
@@ -70,6 +161,9 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
     saveField('tags', next);
   };
 
+  // ─── APROVADO ─────────────────────────────────────────────────────────────
+  const toggleApproved = () => saveField('approved', !formRef.current.approved);
+
   // ─── NOTAS (textarea com save no blur) ────────────────────────────────────
   const openNotes = () => {
     setNotesDraft(formRef.current.notes ?? '');
@@ -77,23 +171,54 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
   };
 
   const handleNotesBlur = () => {
-    // notesDraft vem do closure da última renderização (sempre atualizado pelo onChange)
     saveFields({ notes: notesDraft });
     setNotesEditing(false);
   };
 
-  // ─── ANEXOS ───────────────────────────────────────────────────────────────
-  const handleFileAdd = (e) => {
-    const newAttachments = Array.from(e.target.files).map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      url: URL.createObjectURL(file),
-    }));
-    saveField('attachments', [...(formRef.current.attachments ?? []), ...newAttachments]);
+  // ─── ANEXOS + FIREBASE STORAGE ───────────────────────────────────────────
+  const handleFileAdd = async (e) => {
+    const files = Array.from(e.target.files);
     e.target.value = '';
+
+    for (const file of files) {
+      const attachId    = Date.now() + Math.random();
+      const storagePath = `attachments/${attachId}`;
+
+      // 1. Exibe imediatamente com blob URL (preview instantâneo)
+      const tempAtt = {
+        id: attachId,
+        name: file.name,
+        url: URL.createObjectURL(file),
+        storagePath,
+        uploading: true,
+        error: false,
+      };
+      saveField('attachments', [...(formRef.current.attachments ?? []), tempAtt]);
+
+      // 2. Faz upload para o Firebase Storage em segundo plano
+      try {
+        const permanentUrl = await uploadAttachment(storagePath, file);
+        // Substitui o blob URL pelo URL permanente
+        const updated = (formRef.current.attachments ?? []).map((a) =>
+          a.id === attachId ? { ...a, url: permanentUrl, uploading: false } : a
+        );
+        saveField('attachments', updated);
+      } catch (err) {
+        console.error('Erro no upload da imagem:', err);
+        const updated = (formRef.current.attachments ?? []).map((a) =>
+          a.id === attachId ? { ...a, uploading: false, error: true } : a
+        );
+        saveField('attachments', updated);
+      }
+    }
   };
 
   const removeAttachment = (id) => {
+    const att = (formRef.current.attachments ?? []).find((a) => a.id === id);
+    // Remove do Firebase Storage (não bloqueia a UI)
+    if (att?.storagePath && !att.uploading) {
+      deleteAttachment(att.storagePath).catch(console.error);
+    }
     const newAttachments = formRef.current.attachments.filter((a) => a.id !== id);
     saveFields({
       attachments: newAttachments,
@@ -160,89 +285,137 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
         {/* ── CONTEÚDO ── */}
         <div className="popup-content">
 
-          {/* Data */}
+          {/* Data + Aprovado */}
           <div className="popup-section">
             <div className="field-label">
               Data {errors.date && <span className="error-inline">⚠ obrigatório</span>}
             </div>
-            <input
-              type="date"
-              className={`form-input date-input ${errors.date ? 'input-error' : ''}`}
-              value={form.date ?? ''}
-              onChange={(e) => {
-                saveField('date', e.target.value);
-                if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
-              }}
-            />
+            <div className="date-approved-row">
+              <input
+                type="date"
+                className={`form-input date-input ${errors.date ? 'input-error' : ''}`}
+                value={form.date ?? ''}
+                onChange={(e) => {
+                  saveField('date', e.target.value);
+                  if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
+                }}
+              />
+              <button
+                className={`btn-approved ${form.approved ? 'btn-approved-active' : ''}`}
+                onClick={toggleApproved}
+                title={form.approved ? 'Clique para desaprovar' : 'Clique para aprovar'}
+              >
+                {form.approved ? '✓ Aprovado' : 'Aprovar'}
+              </button>
+            </div>
           </div>
 
           {/* Formato — pills */}
           <div className="popup-section">
             <div className="popup-section-label">
               Formato {errors.format && <span className="error-inline">⚠ obrigatório</span>}
+              <button className="manage-btn" onClick={() => setManagingFormats((v) => !v)}>
+                {managingFormats ? 'Fechar' : '⚙ Gerenciar'}
+              </button>
             </div>
-            <div className={`pill-selector ${errors.format && !form.format ? 'pill-group-error' : ''}`}>
-              {FORMATS.map((f) => {
-                const isSelected = form.format === f;
-                return (
-                  <button
-                    key={f}
-                    className={`modal-pill ${FORMAT_CLS[f] ?? ''} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                    onClick={() => {
-                      saveField('format', f);
-                      if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
-                    }}
-                  >
-                    {formatIcon(f)} {f}
-                  </button>
-                );
-              })}
-            </div>
+            {managingFormats ? (
+              <ManageGroup
+                items={availableFormats}
+                onAdd={onAddFormat}
+                onDelete={onDeleteFormat}
+                onRename={onRenameFormat}
+              />
+            ) : (
+              <div className={`pill-selector ${errors.format && !form.format ? 'pill-group-error' : ''}`}>
+                {availableFormats.map((f) => {
+                  const isSelected = form.format === f;
+                  return (
+                    <button
+                      key={f}
+                      className={`modal-pill ${FORMAT_CLS[f] ?? 'fmt-post'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                      onClick={() => {
+                        saveField('format', f);
+                        if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
+                      }}
+                    >
+                      {f}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Status — pills */}
           <div className="popup-section">
             <div className="popup-section-label">
               Status {errors.status && <span className="error-inline">⚠ obrigatório</span>}
+              <button className="manage-btn" onClick={() => setManagingStatuses((v) => !v)}>
+                {managingStatuses ? 'Fechar' : '⚙ Gerenciar'}
+              </button>
             </div>
-            <div className={`pill-selector ${errors.status && !form.status ? 'pill-group-error' : ''}`}>
-              {STATUSES.map((s) => {
-                const isSelected = form.status === s;
-                return (
-                  <button
-                    key={s}
-                    className={`modal-pill ${STATUS_CLS[s] ?? ''} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                    onClick={() => {
-                      saveField('status', s);
-                      if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
-                    }}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
+            {managingStatuses ? (
+              <ManageGroup
+                items={availableStatuses}
+                onAdd={onAddStatus}
+                onDelete={onDeleteStatus}
+                onRename={onRenameStatus}
+              />
+            ) : (
+              <div className={`pill-selector ${errors.status && !form.status ? 'pill-group-error' : ''}`}>
+                {availableStatuses.map((s) => {
+                  const isSelected = form.status === s;
+                  return (
+                    <button
+                      key={s}
+                      className={`modal-pill ${STATUS_CLS[s] ?? 'status-planejado'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                      onClick={() => {
+                        saveField('status', s);
+                        if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Etiquetas */}
           <div className="popup-section">
-            <div className="popup-section-label">Etiquetas</div>
-            <div className="pill-selector">
-              {PILLARS.map((tag) => {
-                const pColor = PILLAR_COLORS[tag];
-                const isSelected = (form.tags ?? []).includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    className={`post-pill ${pColor.cls} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                    onClick={() => toggleTag(tag)}
-                    title={isSelected ? `Remover "${tag}"` : `Adicionar "${tag}"`}
-                  >
-                    {isSelected && '✓ '}{tag}
-                  </button>
-                );
-              })}
+            <div className="popup-section-label">
+              Etiquetas
+              <button className="manage-btn" onClick={() => setManagingTags((v) => !v)}>
+                {managingTags ? 'Fechar' : '⚙ Gerenciar'}
+              </button>
             </div>
+            {managingTags ? (
+              <ManageGroup
+                items={availableTags}
+                onAdd={onAddTag}
+                onDelete={onDeleteTag}
+                onRename={onRenameTag}
+                colorMap={PILLAR_COLORS}
+              />
+            ) : (
+              <div className="pill-selector">
+                {availableTags.map((tag) => {
+                  const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                  const isSelected = (form.tags ?? []).includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      className={`post-pill modal-pill ${pColor.cls} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                      onClick={() => toggleTag(tag)}
+                      title={isSelected ? `Remover "${tag}"` : `Adicionar "${tag}"`}
+                    >
+                      {isSelected && '✓ '}{tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Descrição — único campo com toggle edit/save */}
@@ -255,7 +428,7 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
             </div>
             {notesEditing ? (
               <textarea
-                className="form-textarea"
+                className="form-textarea notes-textarea"
                 value={notesDraft}
                 onChange={(e) => setNotesDraft(e.target.value)}
                 onBlur={handleNotesBlur}
@@ -299,15 +472,36 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
                   {form.attachments.map((att) => {
                     const isCover = form.coverId === att.id;
                     return (
-                      <div key={att.id} className={`attachment-thumb ${isCover ? 'attachment-is-cover' : ''}`}>
+                      <div key={att.id} className={`attachment-thumb ${isCover ? 'attachment-is-cover' : ''} ${att.uploading ? 'attachment-uploading' : ''} ${att.error ? 'attachment-error' : ''}`}>
                         <img
                           src={att.url}
                           alt={att.name}
-                          onClick={() => toggleCover(att.id)}
-                          title={isCover ? 'Clique para remover como capa' : 'Clique para definir como capa'}
+                          onClick={() => !att.uploading && toggleCover(att.id)}
+                          title={
+                            att.uploading ? 'Enviando imagem…'
+                            : att.error    ? 'Falha no envio'
+                            : isCover      ? 'Clique para remover como capa'
+                            :                'Clique para definir como capa'
+                          }
+                          style={{ opacity: att.uploading ? 0.5 : 1 }}
                         />
-                        {isCover && <div className="cover-badge">🖼 Capa</div>}
-                        <button className="attachment-remove" onClick={() => removeAttachment(att.id)}>×</button>
+                        {/* Indicador de status sobre a imagem */}
+                        {att.uploading && (
+                          <div className="att-status-overlay">
+                            <span className="att-spinner" /> Enviando…
+                          </div>
+                        )}
+                        {att.error && (
+                          <div className="att-status-overlay att-error-overlay">
+                            ⚠ Falha
+                          </div>
+                        )}
+                        {isCover && !att.uploading && <div className="cover-badge">🖼 Capa</div>}
+                        <button
+                          className="attachment-remove"
+                          onClick={() => removeAttachment(att.id)}
+                          disabled={att.uploading}
+                        >×</button>
                         <div className="attachment-name">{att.name}</div>
                       </div>
                     );
@@ -322,22 +516,65 @@ export default function PostModal({ post, onSave, onDelete, onClose }) {
           </div>
         </div>
 
+        {/* ── HISTÓRICO DE ALTERAÇÕES (colapsável) ── */}
+        {showHistory && (
+          <div className="history-panel">
+            <div className="history-panel-header">
+              📋 Histórico de Alterações
+              <span className="history-count">{(form.history ?? []).length} registro(s)</span>
+            </div>
+            {(form.history ?? []).length === 0 ? (
+              <p className="history-empty">Nenhuma alteração registrada ainda.</p>
+            ) : (
+              <div className="history-list">
+                {[...(form.history ?? [])].reverse().map((entry) => (
+                  <div key={entry.id} className="history-entry">
+                    <div className="history-entry-time">
+                      🕐 {fmtTimestamp(entry.timestamp)}
+                    </div>
+                    <ul className="history-changes">
+                      {entry.changes.map((change, i) => (
+                        <li key={i}>{change}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── RODAPÉ ── */}
         <div className="popup-footer">
+          {/* Excluir — só para posts existentes */}
           {!isNew && (
             <button className="btn-danger" onClick={() => onDelete(post)}>🗑 Excluir</button>
           )}
+
+          {/* Spacer empurra histórico e ações para a direita */}
+          <div style={{ flex: 1 }} />
+
+          {/* Histórico — sempre visível */}
+          <button
+            className={`btn-history ${showHistory ? 'btn-history-active' : ''}`}
+            onClick={() => setShowHistory((v) => !v)}
+            title="Ver histórico de alterações"
+          >
+            📋 Histórico{(form.history ?? []).length > 0 && ` (${form.history.length})`}
+          </button>
+
+          {/* Criar Post — só para posts novos */}
           {isNew && (
-            <div className="popup-footer-actions" style={{ width: '100%' }}>
+            <>
               {hasErrors && (
                 <span className="error-msg" style={{ margin: 0 }}>
                   ⚠ Preencha os campos obrigatórios.
                 </span>
               )}
-              <button className="btn-primary" style={{ marginLeft: 'auto' }} onClick={handleCreate}>
+              <button className="btn-primary" onClick={handleCreate}>
                 ✓ Criar Post
               </button>
-            </div>
+            </>
           )}
         </div>
 
