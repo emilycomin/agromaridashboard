@@ -58,7 +58,7 @@ function buildHistoryEntry(oldPost, newPost) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────────────────
-export default function Dashboard({ userRole = 'social-media', onLogout }) {
+export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, onLogout, onBack }) {
   const isCliente = userRole === 'cliente';
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -111,7 +111,7 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
     let seeded = false; // evita re-semeadura a cada snapshot
 
     // 1. Carrega configurações (fetch único — mudam raramente)
-    loadSettings()
+    loadSettings(clientId)
       .then((settings) => {
         if (!settings) return;
         if (settings.availableTags?.length)     setAvailableTags(settings.availableTags);
@@ -121,26 +121,32 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
       .catch(console.error);
 
     // 2. Assina posts em tempo real
+    const shouldSeed = clientId === 'agromari'; // semeadura apenas para o cliente legado
     const unsubscribe = subscribePosts(
+      clientId,
       async (firestorePosts) => {
         if (firestorePosts.length > 0) {
           // Mescla: semeia apenas os posts do INITIAL_POSTS que ainda não existem
-          if (!seeded) {
+          if (!seeded && shouldSeed) {
             seeded = true;
             const existingIds = new Set(firestorePosts.map((p) => String(p.id)));
             const missing = INITIAL_POSTS.filter((p) => !existingIds.has(String(p.id)));
             if (missing.length > 0) {
-              await Promise.all(missing.map((p) => persistPost(p)));
+              await Promise.all(missing.map((p) => persistPost(clientId, p)));
               return; // o próprio persistPost vai disparar um novo snapshot com os dados completos
             }
           }
+          seeded = true;
           setPosts(firestorePosts);
         } else {
-          // Primeira vez: semeia com todos os posts iniciais
-          if (!seeded) {
+          if (!seeded && shouldSeed) {
+            // Primeira vez Agromari: semeia com todos os posts iniciais
             seeded = true;
-            await Promise.all(INITIAL_POSTS.map((p) => persistPost(p)));
+            await Promise.all(INITIAL_POSTS.map((p) => persistPost(clientId, p)));
             // O snapshot seguinte virá automaticamente com os posts semeados
+          } else {
+            seeded = true;
+            setPosts([]);
           }
         }
         setLoading(false);
@@ -149,7 +155,7 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
       (err) => {
         console.error('Erro no listener do Firestore:', err);
         setDbError('Não foi possível conectar ao banco de dados. Usando dados locais.');
-        setPosts(INITIAL_POSTS);
+        setPosts(shouldSeed ? INITIAL_POSTS : []);
         setLoading(false);
         requestAnimationFrame(() => { settingsReady.current = true; });
       },
@@ -161,7 +167,7 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
   // ─── SALVA CONFIGURAÇÕES NO FIRESTORE (quando mudam após carregamento) ────────
   useEffect(() => {
     if (!settingsReady.current) return;
-    persistSettings({ availableTags, availableFormats, availableStatuses }).catch(console.error);
+    persistSettings(clientId, { availableTags, availableFormats, availableStatuses }).catch(console.error);
   }, [availableTags, availableFormats, availableStatuses]);
 
   // ─── HANDLERS DE ETIQUETAS ───────────────────────────────────────────────────
@@ -214,21 +220,21 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
 
       setPosts((prev) => prev.map((p) => (p.id === toSave.id ? toSave : p)));
       setSelectedPost((prev) => (prev?.id === toSave.id ? toSave : prev));
-      persistPost(toSave).catch(console.error);
+      persistPost(clientId, toSave).catch(console.error);
     } else {
       // Criação: gera ID, semeia o Firestore e abre o modal no post criado
       const saved = { ...updatedPost, id: Date.now() };
       setPosts((prev) => [...prev, saved]);
       setSelectedPost(saved);
       setSortConfig({ key: 'date', direction: 'asc' });
-      persistPost(saved).catch(console.error);
+      persistPost(clientId, saved).catch(console.error);
     }
   };
 
   const handleDeletePost = (post) => {
     setPosts((prev) => prev.filter((p) => p.id !== post.id));
     setSelectedPost(null);
-    removePost(post.id).catch(console.error);
+    removePost(clientId, post.id).catch(console.error);
   };
 
   const openNewPost = (date = '') => setSelectedPost({ ...NEW_POST_TEMPLATE, date });
@@ -358,6 +364,10 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
         onMonthChange={setCalendarMonth}
         userRole={userRole}
         onLogout={onLogout}
+        onBack={onBack}
+        clientName={clientMeta.name   ?? 'AGROMARI PETSHOP'}
+        clientHandle={clientMeta.handle ?? '@agro.mari'}
+        clientEmoji={clientMeta.emoji  ?? '🐾'}
       />
 
       {dbError && (
@@ -431,7 +441,7 @@ export default function Dashboard({ userRole = 'social-media', onLogout }) {
               );
               ids.forEach((id) => {
                 const p = posts.find((x) => x.id === id);
-                if (p) persistPost({ ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
+                if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
               });
             }}
             readOnly={false}

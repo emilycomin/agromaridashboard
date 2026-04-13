@@ -85,6 +85,23 @@
       letter-spacing: 0.3px;
     }
 
+    .header-back-btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 18px;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .header-back-btn:hover { background: rgba(255,255,255,0.28); }
+
     .logout-btn {
       background: rgba(255,255,255,0.12);
       border: 1px solid rgba(255,255,255,0.3);
