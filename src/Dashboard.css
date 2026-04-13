@@ -74,6 +74,29 @@
     }
     .filter-chip select option { background: var(--verde-escuro); }
 
+    .role-badge {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 20px;
+      padding: 5px 14px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .logout-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.25); }
+
     /* ====== MAIN ====== */
     .main { max-width: 1400px; margin: 0 auto; padding: 22px 20px 40px; }
 
@@ -158,9 +181,11 @@
     /* ====== KPI ROW ====== */
     .kpi-row {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 1fr;
       gap: 14px;
       margin-bottom: 22px;
+      align-items: stretch;
     }
     .kpi-card {
       background: var(--cinza-card);
@@ -169,14 +194,199 @@
       box-shadow: var(--shadow);
       border-left: 4px solid var(--verde);
       display: flex; flex-direction:column; gap:4px;
+      justify-content: center;
+      height: 100%;
     }
-    .kpi-card.orange { border-left-color: var(--laranja); }
-    .kpi-card.blue   { border-left-color: var(--azul);   }
-    .kpi-card.purple { border-left-color: var(--roxo);   }
-    .kpi-card.pink   { border-left-color: var(--rosa);   }
+    .kpi-card.orange        { border-left-color: var(--laranja); }
+    .kpi-card.blue          { border-left-color: var(--azul);   }
+    .kpi-card.purple        { border-left-color: var(--roxo);   }
+    .kpi-card.pink          { border-left-color: var(--rosa);   }
+    .kpi-card.kpi-aprovado  { border-left-color: #43A047; background: #F1F8E9; }
+    .kpi-card.kpi-aprovado .kpi-value { color: #2E7D32; }
+    .kpi-card.kpi-rejeitado { border-left-color: #E53935; background: #FFF5F5; }
+    .kpi-card.kpi-rejeitado .kpi-value { color: #C62828; }
+    .kpi-card.kpi-ajustes   { border-left-color: #FBC02D; background: #FFFDE7; }
+    .kpi-card.kpi-ajustes   .kpi-value { color: #F57F17; }
+
+    /* ── KPI cards clicáveis ── */
+    .kpi-card.kpi-clickable {
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .kpi-card.kpi-clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+    }
+    .kpi-card.kpi-clickable.kpi-active {
+      box-shadow: 0 0 0 2px currentColor, 0 4px 16px rgba(0,0,0,0.13);
+      transform: translateY(-2px);
+    }
+    .kpi-card.kpi-aprovado.kpi-active  { box-shadow: 0 0 0 2px #43A047, 0 4px 16px rgba(0,0,0,0.10); }
+    .kpi-card.kpi-rejeitado.kpi-active { box-shadow: 0 0 0 2px #E53935, 0 4px 16px rgba(0,0,0,0.10); }
+    .kpi-card.kpi-ajustes.kpi-active   { box-shadow: 0 0 0 2px #FBC02D, 0 4px 16px rgba(0,0,0,0.10); }
+    .kpi-click-hint {
+      font-size: 10px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.15s;
+      margin-top: 2px;
+      color: inherit;
+    }
+    .kpi-card.kpi-clickable:hover .kpi-click-hint,
+    .kpi-card.kpi-clickable.kpi-active .kpi-click-hint { opacity: 0.6; }
+
+    /* ── KPI Overlay ── */
+    .kpi-overlay-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.40);
+      z-index: 1500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .kpi-overlay-panel {
+      background: #fff;
+      border-radius: 14px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      overflow: hidden;
+    }
+    .kpi-overlay-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #F0F0F0;
+      border-left: 5px solid #ccc;
+    }
+    .kpi-overlay-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--preto);
+      margin: 0;
+      flex: 1;
+    }
+    .kpi-overlay-count {
+      font-size: 12px;
+      font-weight: 600;
+      background: #F5F5F5;
+      padding: 2px 10px;
+      border-radius: 20px;
+      color: var(--cinza-texto);
+    }
+    .kpi-overlay-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--cinza-texto);
+      line-height: 1;
+      padding: 0 4px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .kpi-overlay-close:hover { background: #F5F5F5; color: var(--preto); }
+    .kpi-overlay-list {
+      overflow-y: auto;
+      padding: 8px 0;
+      flex: 1;
+    }
+    .kpi-overlay-empty {
+      text-align: center;
+      padding: 32px;
+      color: var(--cinza-texto);
+      font-style: italic;
+      font-size: 13px;
+    }
+    .kpi-overlay-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border-bottom: 1px solid #F5F5F5;
+    }
+    .kpi-overlay-item:hover { background: #F9F9F9; }
+    .kpi-overlay-date {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cinza-texto);
+      min-width: 36px;
+    }
+    .kpi-overlay-icon { font-size: 15px; }
+    .kpi-overlay-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--preto);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kpi-overlay-note {
+      font-size: 14px;
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
     .kpi-label { font-size: 11px; text-transform:uppercase; letter-spacing:0.6px; color: var(--cinza-texto); font-weight:600; }
     .kpi-value { font-size: 32px; font-weight: 800; color: var(--preto); line-height:1; }
     .kpi-desc  { font-size: 12px; color: var(--cinza-texto); }
+
+    /* ── KPI card com gráfico circular ── */
+    .kpi-card-chart {
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      gap: 0;
+    }
+    .circ-progress-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .circ-progress-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 0;
+    }
+    .circ-count {
+      font-size: 20px;
+      font-weight: 800;
+      color: #2E7D32;
+      line-height: 1;
+    }
+    .circ-total {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--cinza-texto);
+    }
+    .circ-desc {
+      font-size: 11px;
+      color: var(--cinza-texto);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .circ-placeholder {
+      width: 130px;
+      height: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: #2E7D32;
+    }
 
     /* ====== GRID LAYOUT ====== */
     .grid-full { margin-bottom: 22px; }
@@ -430,10 +640,15 @@
       padding: 2px 8px; border-radius: 10px;
       font-size: 11px; font-weight: 600;
     }
-    .status-planejado   { background: #F5F5F5; color: #546E7A; }
-    .status-producao    { background: #FFF8E1; color: #E65100; }
-    .status-pronto      { background: #E8F5E9; color: #2D7D3A; }
-    .status-publicado   { background: #E3F2FD; color: #1565C0; }
+    .status-planejado    { background: #F5F5F5; color: #546E7A; }
+    .status-producao     { background: #FFF8E1; color: #E65100; }
+    .status-agendado     { background: #E8F5E9; color: #2D7D3A; }
+    .status-publicado    { background: #E3F2FD; color: #1565C0; }
+    /* Novos status de aprovação */
+    .status-aguardando   { background: #EDE7F6; color: #4527A0; }
+    .status-aprovado-tag { background: #C8E6C9; color: #1B5E20; font-weight: 700; border: 1px solid #81C784; }
+    .status-alteracoes   { background: #FFF8E1; color: #F57F17; font-weight: 700; }
+    .status-rejeitado-tag{ background: #FFEBEE; color: #B71C1C; font-weight: 700; }
     .dot-status { width:7px; height:7px; border-radius:50%; display:inline-block; }
 
     /* ====== KANBAN ====== */
@@ -574,6 +789,373 @@
       color: var(--cinza-texto);
     }
 
+    /* ====== BARRA DE APROVAÇÃO (cliente) ====== */
+    .approval-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: linear-gradient(135deg, #1B5E20 0%, #2D7D3A 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 16px rgba(45,125,58,0.28);
+    }
+    .approval-banner-done {
+      background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%);
+      box-shadow: 0 4px 16px rgba(21,101,192,0.22);
+      justify-content: center;
+    }
+    .approval-banner-text {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .approval-banner-count {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .approval-banner-btn {
+      background: #fff;
+      color: #1B5E20;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .approval-banner-btn:hover {
+      background: #E8F5E9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    /* ====== RODAPÉ DO MODAL — REVIEW CLIENTE ====== */
+    .popup-footer-review {
+      border-top: 2px solid #E0E0E0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      background: #FAFAFA;
+    }
+
+    /* Barra de progresso da fila */
+    .review-progress-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 20px 10px;
+      border-bottom: 1px solid #E0E0E0;
+    }
+    .review-progress-label {
+      font-size: 12px;
+      color: var(--cinza-texto);
+      text-align: center;
+    }
+    .review-progress-track {
+      height: 4px;
+      background: #E0E0E0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .review-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2D7D3A, #66BB6A);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    /* Feedback de review enviado */
+    .review-sent-feedback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px 20px;
+    }
+    .review-sent-pill {
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .review-sent-aprovado  { background: #E8F5E9; color: #1B5E20; }
+    .review-sent-rejeitado { background: #FFEBEE; color: #C62828; }
+    .review-sent-ajustes   { background: #FFF8E1; color: #E65100; }
+    .review-sent-next {
+      font-size: 12px;
+      color: var(--cinza-texto);
+      font-style: italic;
+    }
+
+    /* Painel de texto (rejeição/ajustes) */
+    .review-footer-panel {
+      padding: 12px 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .review-footer-rejeitar { border-top: 2px solid #EF9A9A; background: #FFEBEE; }
+    .review-footer-ajustes  { border-top: 2px solid #FFE082; background: #FFF8E1; }
+    .review-footer-panel-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #37474F;
+    }
+    .review-footer-panel .review-textarea {
+      font-size: 13px;
+      min-height: 60px;
+    }
+
+    /* Botões grandes de ação */
+    .review-footer-btns {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid #E0E0E0;
+    }
+    .review-footer-btn {
+      flex: 1;
+      padding: 16px 10px;
+      border: none;
+      border-right: 1px solid rgba(255,255,255,0.15);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: filter 0.15s, opacity 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .review-footer-btn:last-child { border-right: none; }
+    .review-footer-btn:hover:not(:disabled) { filter: brightness(0.92); }
+    .review-footer-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .review-footer-btn-rejeitar { background: #C62828; color: #fff; }
+    .review-footer-btn-ajustes  { background: #F57F17; color: #fff; }
+    .review-footer-btn-aprovar  { background: #2D7D3A; color: #fff; }
+    .review-footer-btn-cancel   {
+      background: #F5F5F5;
+      color: #546E7A;
+      flex: 0 0 auto;
+      padding: 16px 18px;
+      border-right: 1px solid #E0E0E0;
+    }
+
+    /* ====== REVIEW DO CLIENTE — NOTIFICAÇÕES ====== */
+
+    /* Banner de notificação no topo do modal (Social Media) */
+    .review-notification-banner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 24px;
+      border-bottom: 2px solid;
+      font-size: 13px;
+    }
+    .review-notification-banner.review-banner-aprovado {
+      background: #E8F5E9;
+      border-color: #2D7D3A;
+      color: #1B5E20;
+    }
+    .review-notification-banner.review-banner-rejeitado {
+      background: #FFEBEE;
+      border-color: #C62828;
+      color: #B71C1C;
+    }
+    .review-notification-banner.review-banner-ajustes {
+      background: #FFF8E1;
+      border-color: #F57F17;
+      color: #E65100;
+    }
+    .review-banner-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+    }
+    .review-banner-icon { font-size: 20px; flex-shrink: 0; }
+    .review-banner-content strong { font-size: 14px; font-weight: 700; display: block; }
+    .review-banner-content p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; }
+    .review-banner-reason {
+      font-style: italic;
+      opacity: 0.9;
+      word-break: break-word;
+    }
+    .review-banner-read-btn {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid currentColor;
+      background: transparent;
+      color: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      opacity: 0.8;
+    }
+    .review-banner-read-btn:hover { opacity: 1; }
+
+    /* Info row lado a lado (cliente) */
+    .client-info-row {
+      flex-direction: row !important;
+      flex-wrap: wrap;
+      gap: 16px !important;
+      background: var(--cinza-bg);
+      border-radius: var(--radius);
+      padding: 14px 16px !important;
+      align-items: flex-start;
+    }
+    .client-info-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    /* Input de data compacto dentro do chip */
+    .client-info-date {
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1.5px solid var(--cinza-borda);
+      background: #fff;
+      color: var(--preto);
+      width: auto;
+      cursor: default;
+    }
+
+    /* Separador vertical entre data e demais chips */
+    .client-info-sep {
+      width: 1px;
+      background: var(--cinza-borda);
+      align-self: stretch;
+      margin: 2px 4px;
+    }
+
+    .client-info-chip-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--cinza-texto);
+    }
+
+    /* Status pill de review do cliente */
+    .review-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .review-status-aprovado  { background: #E8F5E9; color: #1B5E20; }
+    .review-status-rejeitado { background: #FFEBEE; color: #C62828; }
+    .review-status-ajustes   { background: #FFF8E1; color: #E65100; }
+    .review-status-enviado   { background: #E3F2FD; color: #1565C0; }
+
+    /* Botões de ação do cliente */
+    .review-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .btn-review {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-review:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-review-aprovar {
+      background: #2D7D3A;
+      color: #fff;
+    }
+    .btn-review-aprovar:hover:not(:disabled) { background: #1B5E20; }
+    .btn-review-ajustes {
+      background: #F57F17;
+      color: #fff;
+    }
+    .btn-review-ajustes:hover:not(:disabled) { background: #E65100; }
+    .btn-review-rejeitar {
+      background: #C62828;
+      color: #fff;
+    }
+    .btn-review-rejeitar:hover:not(:disabled) { background: #B71C1C; }
+
+    /* Painel de input para rejeição/ajustes */
+    .review-panel {
+      margin-top: 10px;
+      padding: 14px;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .review-panel-rejeitar { background: #FFEBEE; border: 1.5px solid #EF9A9A; }
+    .review-panel-ajustes  { background: #FFF8E1; border: 1.5px solid #FFE082; }
+    .review-panel-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--preto);
+    }
+    .review-textarea {
+      resize: vertical;
+      min-height: 72px;
+    }
+    .review-panel-btns {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .btn-review-cancel {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--cinza-borda);
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-review-cancel:hover { background: var(--cinza-bg); }
+
+    /* Dot de notificação no calendário e tabela */
+    .notif-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #C62828;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .cal-day .notif-dot {
+      position: absolute;
+      top: 5px;
+      right: 6px;
+      width: 9px;
+      height: 9px;
+      border: 1.5px solid #fff;
+    }
+    .post-pill-wrap {
+      position: relative;
+      display: block;
+    }
+
     /* ====== ERROR BANNER ====== */
     .db-error-banner {
       background: #FFF3E0;
@@ -589,8 +1171,11 @@
       .charts-grid { grid-template-columns: 1fr; }
       .kanban       { grid-template-columns: 1fr; }
     }
-    @media (max-width: 1100px) {
-      .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 1400px) {
+      .kpi-row { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 600px) {
       .kpi-row       { grid-template-columns: repeat(2, 1fr); }
@@ -603,11 +1188,32 @@
     .popup-large {
       max-width: 580px;
       width: 95%;
-      max-height: 88vh;
+      height: 80vh;        /* altura fixa — não cresce com o conteúdo */
+      max-height: 80vh;
       padding: 0;
       display: flex;
       flex-direction: column;
     }
+    /* Modal expandido quando tem carrossel */
+    .popup-with-carousel {
+      max-width: 960px;
+    }
+
+    /* ── Layout split (campos | carrossel) ── */
+    .popup-main-row {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .popup-main-left {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
     .popup-header {
       display: flex;
       align-items: center;
@@ -644,6 +1250,183 @@
       display: flex;
       flex-direction: column;
       gap: 18px;
+    }
+
+    /* ====== CARROSSEL ====== */
+    .popup-carousel-col {
+      width: 300px;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      background: #111;
+      border-left: 1px solid #333;
+      overflow: hidden;
+    }
+
+    /* Imagem principal */
+    .carousel-main {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .carousel-main-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+    }
+
+    /* Setas de navegação */
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      z-index: 2;
+      padding: 0;
+    }
+    .carousel-arrow:hover:not(:disabled) { background: rgba(0,0,0,0.85); }
+    .carousel-arrow:disabled { opacity: 0.2; cursor: default; }
+    .carousel-arrow-prev { left: 8px; }
+    .carousel-arrow-next { right: 8px; }
+
+    /* Botões sobre a imagem (Social Media) */
+    .carousel-main-actions {
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.65));
+      z-index: 2;
+    }
+    .carousel-cover-btn {
+      flex: 1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(255,255,255,0.5);
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .carousel-cover-btn:hover:not(:disabled) { background: rgba(0,0,0,0.7); }
+    .carousel-cover-btn:disabled { opacity: 0.4; cursor: default; }
+    .carousel-cover-btn-active {
+      background: rgba(45,125,58,0.7);
+      border-color: #A5D6A7;
+    }
+    .carousel-remove-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(239,83,80,0.7);
+      background: rgba(198,40,40,0.45);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .carousel-remove-btn:hover:not(:disabled) { background: rgba(198,40,40,0.8); }
+    .carousel-remove-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Contador + nome do arquivo */
+    .carousel-counter {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: #1a1a1a;
+      font-size: 11px;
+      color: #aaa;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .carousel-filename {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+      font-style: italic;
+    }
+
+    /* Faixa de thumbnails */
+    .carousel-thumbs {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px 8px;
+      background: #1a1a1a;
+      max-height: 120px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .carousel-thumb {
+      position: relative;
+      width: 62px;
+      height: 62px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      padding: 0;
+      background: #000;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.15s;
+    }
+    .carousel-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .carousel-thumb:hover img { opacity: 1; }
+    .carousel-thumb-active {
+      border-color: #fff;
+    }
+    .carousel-thumb-active img { opacity: 1; }
+    .carousel-thumb-cover {
+      border-color: var(--verde-medio) !important;
+    }
+    .carousel-thumb-loading img { opacity: 0.3; }
+    .carousel-thumb-badge {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(45,125,58,0.85);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      text-align: center;
+      padding: 1px 0;
     }
     .popup-meta-row {
       display: flex;
@@ -729,8 +1512,8 @@
     }
     .notes-edit-btn:hover { background: var(--azul-claro); }
     .notes-view {
-      min-height: 80px;
-      max-height: 160px;
+      min-height: 64px;
+      max-height: 110px;
       overflow-y: auto;
       border: 1.5px solid var(--cinza-borda);
       border-radius: 8px;
@@ -741,8 +1524,9 @@
       background: #fafafa;
     }
     .notes-textarea {
-      min-height: 80px;
-      max-height: 160px;
+      min-height: 64px;
+      max-height: 110px;
+      resize: none;
     }
     .notes-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
@@ -801,6 +1585,55 @@
       border-color: var(--verde-escuro);
     }
     .btn-approved-active:hover { background: var(--verde-escuro); }
+
+    /* ── Mandar para aprovação ── */
+    .btn-send-approval {
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1.5px solid #1976D2;
+      background: #E3F2FD;
+      color: #1565C0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-send-approval:hover {
+      background: #BBDEFB;
+      border-color: #1565C0;
+    }
+    .send-approval-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .send-approval-aprovado {
+      background: #E8F5E9;
+      color: #2E7D32;
+      border: 1.5px solid #A5D6A7;
+    }
+    .send-approval-rejeitado {
+      background: #FFEBEE;
+      color: #C62828;
+      border: 1.5px solid #EF9A9A;
+    }
+    .send-approval-ajustes {
+      background: #FFF8E1;
+      color: #F57F17;
+      border: 1.5px solid #FFE082;
+    }
+    .send-approval-aguardando {
+      background: #E8EAF6;
+      color: #283593;
+      border: 1.5px solid #9FA8DA;
+    }
 
     /* ====== GERENCIAMENTO DE OPÇÕES ====== */
     .manage-btn {
@@ -1207,3 +2040,148 @@
       opacity: 0.5;
     }
     .icon-btn:hover { background: #ffebee; opacity: 1; }
+
+    /* ── Table title alignment ── */
+    .post-title-cell { text-align: left !important; }
+
+    /* ── Attachment badge in table row ── */
+    .attach-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #E3F2FD;
+      color: #1565C0;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid #BBDEFB;
+    }
+
+    /* ── Row color by client review status ── */
+    .posts-table tbody tr.row-aprovado  td { background: #DCEDC8; }
+    .posts-table tbody tr.row-aprovado td:first-child { border-left: 4px solid #43A047; }
+    .posts-table tbody tr.row-aprovado:hover td { background: #C5E1A5; }
+    .posts-table tbody tr.row-rejeitado td { background: #FFCDD2; }
+    .posts-table tbody tr.row-rejeitado td:first-child { border-left: 4px solid #E53935; }
+    .posts-table tbody tr.row-rejeitado:hover td { background: #FFBCBC; }
+    .posts-table tbody tr.row-ajustes   td { background: #FFFDE7; }
+    .posts-table tbody tr.row-ajustes td:first-child { border-left: 4px solid #FBC02D; }
+    .posts-table tbody tr.row-ajustes:hover td { background: #FFF8E1; }
+
+    /* ── Checkbox styling ── */
+    .table-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--verde);
+    }
+
+    /* ── Bulk action bar ── */
+    .bulk-action-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      margin-bottom: 10px;
+      background: #E3F2FD;
+      border: 1.5px solid #90CAF9;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .bulk-count {
+      font-weight: 700;
+      color: #1565C0;
+      flex: 1;
+    }
+    .bulk-send-btn {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1.5px solid #1976D2;
+      background: #1976D2;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .bulk-send-btn:hover { background: #1565C0; }
+    .bulk-clear-btn {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1.5px solid #90CAF9;
+      background: transparent;
+      color: #1565C0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .bulk-clear-btn:hover { background: #BBDEFB; }
+
+    /* ── Delete confirmation dialog ── */
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .confirm-dialog {
+      background: #fff;
+      border-radius: 14px;
+      padding: 32px 28px 24px;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .confirm-icon { font-size: 36px; margin-bottom: 10px; }
+    .confirm-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--preto);
+      margin: 0 0 10px;
+    }
+    .confirm-msg {
+      font-size: 14px;
+      color: var(--cinza-texto);
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .confirm-btn-cancel {
+      padding: 9px 22px;
+      border-radius: 20px;
+      border: 1.5px solid var(--cinza-borda);
+      background: #fff;
+      color: var(--cinza-texto);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .confirm-btn-cancel:hover { background: #F5F5F5; }
+    .confirm-btn-delete {
+      padding: 9px 22px;
+      border-radius: 20px;
+      border: 1.5px solid #E53935;
+      background: #E53935;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .confirm-btn-delete:hover { background: #C62828; }

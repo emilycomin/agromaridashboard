@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_POSTS, CURRENT_YEAR, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
-import { loadPosts, persistPost, removePost, loadSettings, persistSettings } from './services/db';
+import { subscribePosts, persistPost, removePost, loadSettings, persistSettings } from './services/db';
 import DashboardHeader from './components/DashboardHeader';
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
@@ -58,7 +58,8 @@ function buildHistoryEntry(oldPost, newPost) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────────────────
-export default function Dashboard() {
+export default function Dashboard({ userRole = 'social-media', onLogout }) {
+  const isCliente = userRole === 'cliente';
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [dbError, setDbError]           = useState(null);
@@ -67,6 +68,21 @@ export default function Dashboard() {
   const [tableFilter, setTableFilter]   = useState('all');
   const [sortConfig, setSortConfig]     = useState({ key: 'date', direction: 'asc' });
   const [selectedPost, setSelectedPost] = useState(null);
+
+  // ─── SINCRONIZA selectedPost com o listener em tempo real ───────────────────
+  // Quando o Firestore atualiza os posts (ex: cliente aprova/rejeita), o modal do
+  // Social Media que estiver aberto reflete as mudanças imediatamente.
+  useEffect(() => {
+    if (!selectedPost?.id) return;
+    const fresh = posts.find((p) => p.id === selectedPost.id);
+    if (fresh && JSON.stringify(fresh) !== JSON.stringify(selectedPost)) {
+      setSelectedPost(fresh);
+    }
+  }, [posts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── FILA DE APROVAÇÃO (cliente) ─────────────────────────────────────────────
+  const [approvalQueue, setApprovalQueue] = useState(null); // null = inativo | [] = fila
+  const [approvalIdx, setApprovalIdx]     = useState(0);
 
   // ─── HANDLERS DE SELEÇÃO DE MESES ────────────────────────────────────────────
   const toggleMonth = (m) =>
@@ -87,56 +103,59 @@ export default function Dashboard() {
   // (evita salvar os valores padrão por cima dos dados em nuvem no primeiro render)
   const settingsReady = useRef(false);
 
-  // ─── CARREGAMENTO INICIAL DO FIRESTORE ───────────────────────────────────────
+  // ─── LISTENER EM TEMPO REAL DO FIRESTORE ─────────────────────────────────────
+  // subscribePosts dispara toda vez que qualquer post é criado/alterado/removido
+  // no Firestore — inclusive pelas ações do perfil do Cliente na mesma sessão ou
+  // em outro dispositivo. Isso mantém o perfil do Social Media sempre sincronizado.
   useEffect(() => {
-    let cancelled = false;
+    let seeded = false; // evita re-semeadura a cada snapshot
 
-    async function bootstrap() {
-      try {
-        // Carrega configurações
-        const settings = await loadSettings();
-        if (!cancelled && settings) {
-          if (settings.availableTags?.length)     setAvailableTags(settings.availableTags);
-          if (settings.availableFormats?.length)  setAvailableFormats(settings.availableFormats);
-          if (settings.availableStatuses?.length) setAvailableStatuses(settings.availableStatuses);
-        }
+    // 1. Carrega configurações (fetch único — mudam raramente)
+    loadSettings()
+      .then((settings) => {
+        if (!settings) return;
+        if (settings.availableTags?.length)     setAvailableTags(settings.availableTags);
+        if (settings.availableFormats?.length)  setAvailableFormats(settings.availableFormats);
+        if (settings.availableStatuses?.length) setAvailableStatuses(settings.availableStatuses);
+      })
+      .catch(console.error);
 
-        // Carrega posts
-        const firestorePosts = await loadPosts();
-        if (cancelled) return;
-
+    // 2. Assina posts em tempo real
+    const unsubscribe = subscribePosts(
+      async (firestorePosts) => {
         if (firestorePosts.length > 0) {
-          // Mescla: adiciona ao Firestore apenas os posts do INITIAL_POSTS que ainda não existem
-          const existingIds = new Set(firestorePosts.map((p) => String(p.id)));
-          const missing = INITIAL_POSTS.filter((p) => !existingIds.has(String(p.id)));
-          if (missing.length > 0) {
-            await Promise.all(missing.map((p) => persistPost(p)));
+          // Mescla: semeia apenas os posts do INITIAL_POSTS que ainda não existem
+          if (!seeded) {
+            seeded = true;
+            const existingIds = new Set(firestorePosts.map((p) => String(p.id)));
+            const missing = INITIAL_POSTS.filter((p) => !existingIds.has(String(p.id)));
+            if (missing.length > 0) {
+              await Promise.all(missing.map((p) => persistPost(p)));
+              return; // o próprio persistPost vai disparar um novo snapshot com os dados completos
+            }
           }
-          const allPosts = [...firestorePosts, ...missing]
-            .sort((a, b) => (a.date < b.date ? -1 : 1));
-          setPosts(allPosts);
+          setPosts(firestorePosts);
         } else {
-          // Primeira vez: semeia com todos os posts
-          await Promise.all(INITIAL_POSTS.map((p) => persistPost(p)));
-          setPosts(INITIAL_POSTS);
+          // Primeira vez: semeia com todos os posts iniciais
+          if (!seeded) {
+            seeded = true;
+            await Promise.all(INITIAL_POSTS.map((p) => persistPost(p)));
+            // O snapshot seguinte virá automaticamente com os posts semeados
+          }
         }
-      } catch (err) {
-        console.error('Erro ao carregar dados do Firestore:', err);
-        if (!cancelled) {
-          setDbError('Não foi possível conectar ao banco de dados. Usando dados locais.');
-          setPosts(INITIAL_POSTS);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-          // Libera o save automático de configurações apenas após o carregamento
-          requestAnimationFrame(() => { settingsReady.current = true; });
-        }
-      }
-    }
+        setLoading(false);
+        requestAnimationFrame(() => { settingsReady.current = true; });
+      },
+      (err) => {
+        console.error('Erro no listener do Firestore:', err);
+        setDbError('Não foi possível conectar ao banco de dados. Usando dados locais.');
+        setPosts(INITIAL_POSTS);
+        setLoading(false);
+        requestAnimationFrame(() => { settingsReady.current = true; });
+      },
+    );
 
-    bootstrap();
-    return () => { cancelled = true; };
+    return () => unsubscribe();
   }, []);
 
   // ─── SALVA CONFIGURAÇÕES NO FIRESTORE (quando mudam após carregamento) ────────
@@ -183,23 +202,19 @@ export default function Dashboard() {
   // ─── CRUD DE POSTS ───────────────────────────────────────────────────────────
   const handleSavePost = (updatedPost) => {
     if (updatedPost.id) {
-      // Auto-save: adiciona entrada no histórico e persiste no Firestore
-      let toSave;
-      setPosts((prev) => prev.map((p) => {
-        if (p.id !== updatedPost.id) return p;
-        const entry = buildHistoryEntry(p, updatedPost);
-        const newHistory = entry ? [...(p.history ?? []), entry] : (p.history ?? []);
-        toSave = { ...updatedPost, history: newHistory };
-        return toSave;
-      }));
-      setSelectedPost((prev) => {
-        if (!prev) return prev;
-        const entry = buildHistoryEntry(prev, updatedPost);
-        const newHistory = entry ? [...(prev.history ?? []), entry] : (prev.history ?? []);
-        return { ...updatedPost, history: newHistory };
-      });
-      // toSave é definido sincronamente dentro do updater do setPosts
-      if (toSave) persistPost(toSave).catch(console.error);
+      // Calcula toSave diretamente (não como side-effect do updater do setPosts,
+      // pois em React 19/StrictMode updaters podem ser chamados múltiplas vezes ou
+      // de forma deferida, tornando a atribuição via side-effect não confiável).
+      const existing = posts.find((p) => p.id === updatedPost.id);
+      const entry    = existing ? buildHistoryEntry(existing, updatedPost) : null;
+      const newHistory = entry
+        ? [...(existing.history ?? []), entry]
+        : (existing?.history ?? []);
+      const toSave = { ...updatedPost, history: newHistory };
+
+      setPosts((prev) => prev.map((p) => (p.id === toSave.id ? toSave : p)));
+      setSelectedPost((prev) => (prev?.id === toSave.id ? toSave : prev));
+      persistPost(toSave).catch(console.error);
     } else {
       // Criação: gera ID, semeia o Firestore e abre o modal no post criado
       const saved = { ...updatedPost, id: Date.now() };
@@ -217,6 +232,42 @@ export default function Dashboard() {
   };
 
   const openNewPost = (date = '') => setSelectedPost({ ...NEW_POST_TEMPLATE, date });
+
+  // ─── FILA DE APROVAÇÃO ───────────────────────────────────────────────────────
+  // Posts enviados para aprovação que ainda não têm review do cliente
+  const postsParaAprovar = useMemo(
+    () => posts.filter((p) => p.enviadoParaAprovacao && !p.clienteReview),
+    [posts]
+  );
+
+  const startApprovalQueue = () => {
+    const queue = postsParaAprovar.map((p) => p.id);
+    setApprovalQueue(queue);
+    setApprovalIdx(0);
+    if (queue.length > 0) {
+      const first = posts.find((p) => p.id === queue[0]);
+      if (first) setSelectedPost(first);
+    }
+  };
+
+  const advanceApprovalQueue = () => {
+    setApprovalQueue((prev) => {
+      if (!prev) return null;
+      const nextIdx = approvalIdx + 1;
+      if (nextIdx >= prev.length) {
+        // Fila concluída
+        setSelectedPost(null);
+        setApprovalIdx(0);
+        return null;
+      }
+      setApprovalIdx(nextIdx);
+      const nextPost = posts.find((p) => p.id === prev[nextIdx]);
+      if (nextPost) setSelectedPost(nextPost);
+      return prev;
+    });
+  };
+
+  const isInApprovalMode = approvalQueue !== null;
 
   // ─── POSTS DOS MESES SELECIONADOS (base para KPIs, tabela e gráficos) ───────
   const monthPosts = useMemo(() => {
@@ -302,7 +353,12 @@ export default function Dashboard() {
   // ─── RENDER ──────────────────────────────────────────────────────────────────
   return (
     <>
-      <DashboardHeader currentMonth={calendarMonth} onMonthChange={setCalendarMonth} />
+      <DashboardHeader
+        currentMonth={calendarMonth}
+        onMonthChange={setCalendarMonth}
+        userRole={userRole}
+        onLogout={onLogout}
+      />
 
       {dbError && (
         <div className="db-error-banner">
@@ -311,6 +367,29 @@ export default function Dashboard() {
       )}
 
       <div className="main">
+        {/* ── BARRA DE APROVAÇÃO (somente cliente) ── */}
+        {isCliente && (
+          <div className={`approval-banner ${postsParaAprovar.length === 0 ? 'approval-banner-done' : ''}`}>
+            {postsParaAprovar.length > 0 ? (
+              <>
+                <div className="approval-banner-text">
+                  <span className="approval-banner-count">{postsParaAprovar.length}</span>
+                  {postsParaAprovar.length === 1
+                    ? ' post aguardando sua aprovação!'
+                    : ' posts aguardando sua aprovação!'}
+                </div>
+                <button className="approval-banner-btn" onClick={startApprovalQueue}>
+                  Iniciar revisão ▶
+                </button>
+              </>
+            ) : (
+              <div className="approval-banner-text">
+                ✅ Todos os posts foram revisados!
+              </div>
+            )}
+          </div>
+        )}
+
         <MonthSelector
           selectedMonths={selectedMonths}
           onToggle={toggleMonth}
@@ -318,7 +397,7 @@ export default function Dashboard() {
           onClearAll={clearMonths}
         />
 
-        <KpiRow posts={monthPosts} selectedMonths={selectedMonths} />
+        <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
 
         <CalendarCard
           currentMonth={calendarMonth}
@@ -330,20 +409,34 @@ export default function Dashboard() {
             );
           }}
           onPostClick={setSelectedPost}
-          onNewPost={(date) => openNewPost(date)}
+          onNewPost={isCliente ? null : (date) => openNewPost(date)}
         />
 
         <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
 
-        <PostsTable
-          posts={filteredAndSortedPosts}
-          tableFilter={tableFilter}
-          onFilterChange={setTableFilter}
-          onSort={handleSort}
-          onPostClick={setSelectedPost}
-          onDeletePost={handleDeletePost}
-          onAddPost={openNewPost}
-        />
+        {!isCliente && (
+          <PostsTable
+            posts={filteredAndSortedPosts}
+            tableFilter={tableFilter}
+            onFilterChange={setTableFilter}
+            onSort={handleSort}
+            onPostClick={setSelectedPost}
+            onDeletePost={handleDeletePost}
+            onAddPost={openNewPost}
+            onBulkSendApproval={(ids) => {
+              setPosts((prev) =>
+                prev.map((p) => ids.includes(p.id)
+                  ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
+                  : p)
+              );
+              ids.forEach((id) => {
+                const p = posts.find((x) => x.id === id);
+                if (p) persistPost({ ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
+              });
+            }}
+            readOnly={false}
+          />
+        )}
       </div>
 
       {/* Renderiza somente quando há post selecionado — garante remontagem limpa
@@ -354,7 +447,10 @@ export default function Dashboard() {
           post={selectedPost}
           onSave={handleSavePost}
           onDelete={handleDeletePost}
-          onClose={() => setSelectedPost(null)}
+          onClose={() => {
+            setSelectedPost(null);
+            if (isInApprovalMode) { setApprovalQueue(null); setApprovalIdx(0); }
+          }}
           availableTags={availableTags}
           onAddTag={addTag}
           onDeleteTag={deleteTag}
@@ -367,6 +463,11 @@ export default function Dashboard() {
           onAddStatus={addStatus}
           onDeleteStatus={deleteStatus}
           onRenameStatus={renameStatus}
+          readOnly={isCliente}
+          isInApprovalMode={isInApprovalMode}
+          approvalIdx={approvalIdx}
+          approvalTotal={approvalQueue?.length ?? 0}
+          onReviewNext={advanceApprovalQueue}
         />
       )}
     </>

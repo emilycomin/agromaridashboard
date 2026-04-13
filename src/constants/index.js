@@ -59,7 +59,7 @@ export const INITIAL_POSTS = [
 ];
 
 export const FORMATS = ['Reel', 'Carrossel', 'Post', 'Stories'];
-export const STATUSES = ['Planejado', 'Em Produção', 'Pronto', 'Publicado'];
+export const STATUSES = ['Planejado', 'Em Produção', 'Agendado', 'Publicado', 'Aguardando Aprovação', 'Aprovado', 'Alterações', 'Rejeitado'];
 export const PILLARS = Object.keys(PILLAR_COLORS);
 
 const FORMAT_ICONS = {

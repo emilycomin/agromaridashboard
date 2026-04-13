@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PILLAR_COLORS } from '../constants';
 import { uploadAttachment, deleteAttachment } from '../services/storage';
 
@@ -10,10 +10,14 @@ const FORMAT_CLS = {
   'Stories':  'fmt-stories',
 };
 const STATUS_CLS = {
-  'Planejado':   'status-planejado',
-  'Em Produção': 'status-producao',
-  'Pronto':      'status-pronto',
-  'Publicado':   'status-publicado',
+  'Planejado':            'status-planejado',
+  'Em Produção':          'status-producao',
+  'Agendado':             'status-agendado',
+  'Publicado':            'status-publicado',
+  'Aguardando Aprovação': 'status-aguardando',
+  'Aprovado':             'status-aprovado-tag',
+  'Alterações':           'status-alteracoes',
+  'Rejeitado':            'status-rejeitado-tag',
 };
 
 // ─── ManageGroup ─────────────────────────────────────────────────────────────
@@ -92,6 +96,11 @@ export default function PostModal({
   availableTags, onAddTag, onDeleteTag, onRenameTag,
   availableFormats, onAddFormat, onDeleteFormat, onRenameFormat,
   availableStatuses, onAddStatus, onDeleteStatus, onRenameStatus,
+  readOnly = false,
+  isInApprovalMode = false,
+  approvalIdx = 0,
+  approvalTotal = 0,
+  onReviewNext,
 }) {
   const isNew = post?.id === null;
 
@@ -109,6 +118,41 @@ export default function PostModal({
 
   const [errors, setErrors] = useState({});
   const fileInputRef = useRef(null);
+
+  // ─── REVIEW DO CLIENTE ────────────────────────────────────────────────────────
+  const [reviewMode, setReviewMode]       = useState(null); // null | 'rejeitado' | 'ajustes'
+  const [reviewDraft, setReviewDraft]     = useState(post?.clienteNotes ?? '');
+  const [reviewSent, setReviewSent]       = useState(false);
+
+  // ─── CARROSSEL ───────────────────────────────────────────────────────────────
+  const [carouselIdx, setCarouselIdx]     = useState(0);
+
+  // ─── SYNC DE CAMPOS DE REVIEW COM O PROP `post` ──────────────────────────────
+  // Quando o Firestore atualiza o post (ex.: cliente envia ajustes enquanto o modal
+  // está aberto), o Dashboard chama setSelectedPost(fresh), o que muda o prop `post`
+  // sem remontar o componente. Sem este efeito, formRef.current e form ficam com
+  // valores antigos, causando dois problemas:
+  //   1. O banner de notificação não aparece (form.clienteNotification desatualizado)
+  //   2. handleMarkRead verifica formRef.current.clienteReview (desatualizado) e
+  //      pode não limpar o campo, impedindo o post de entrar em postsParaAprovar
+  //      novamente após o SM reenviar para aprovação.
+  useEffect(() => {
+    if (!post?.id) return;
+    const REVIEW_FIELDS = ['clienteReview', 'clienteNotes', 'clienteNotification', 'enviadoParaAprovacao'];
+    const needsSync = REVIEW_FIELDS.some(
+      (f) => (formRef.current[f] ?? null) !== (post[f] ?? null)
+    );
+    if (!needsSync) return;
+    const updated = {
+      ...formRef.current,
+      clienteReview:        post.clienteReview        ?? null,
+      clienteNotes:         post.clienteNotes         ?? '',
+      clienteNotification:  post.clienteNotification  ?? false,
+      enviadoParaAprovacao: post.enviadoParaAprovacao  ?? false,
+    };
+    formRef.current = updated;
+    setForm(updated);
+  }, [post?.clienteReview, post?.clienteNotes, post?.clienteNotification, post?.enviadoParaAprovacao]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!post) return null;
 
@@ -248,6 +292,57 @@ export default function PostModal({
     onSave(f);
   };
 
+  // ─── HANDLERS DE REVIEW (perfil cliente) ─────────────────────────────────────
+  // Mapeia clienteReview → status automático
+  const REVIEW_STATUS = {
+    aprovado:  'Aprovado',
+    ajustes:   'Alterações',
+    rejeitado: 'Rejeitado',
+  };
+
+  const sendReview = (type, notes = '') => {
+    const updated = {
+      ...formRef.current,
+      clienteReview: type,
+      clienteNotes: notes,
+      clienteNotification: true,
+      status: REVIEW_STATUS[type] ?? formRef.current.status,
+    };
+    formRef.current = updated;
+    setForm(updated);
+    onSave(updated);
+    setReviewMode(null);
+    setReviewSent(true);
+    // Se estiver na fila de aprovação, avança automaticamente
+    if (isInApprovalMode && onReviewNext) {
+      // Pequeno delay para o usuário perceber o feedback antes de avançar
+      setTimeout(() => onReviewNext(), 600);
+    }
+  };
+
+  const handleAprovar = () => sendReview('aprovado');
+
+  const handleConfirmReview = () => {
+    if (!reviewDraft.trim()) return;
+    sendReview(reviewMode, reviewDraft.trim());
+  };
+
+  // Marcar notificação como lida (social media)
+  // Para "ajustes": limpa o review e libera o botão de reenvio para o cliente
+  const handleMarkRead = () => {
+    if (formRef.current.clienteReview === 'ajustes') {
+      saveFields({
+        clienteNotification: false,
+        clienteReview: null,
+        clienteNotes: '',
+        enviadoParaAprovacao: false,
+        status: 'Em Produção',
+      });
+    } else {
+      saveFields({ clienteNotification: false });
+    }
+  };
+
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -255,29 +350,68 @@ export default function PostModal({
   const coverAttachment = (form.attachments ?? []).find((a) => a.id === form.coverId);
   const hasErrors = Object.keys(errors).length > 0;
 
+  // Carrossel
+  const attachments   = form.attachments ?? [];
+  const hasAttachments = attachments.length > 0;
+  const safeIdx       = hasAttachments ? Math.min(carouselIdx, attachments.length - 1) : 0;
+  const activeAtt     = hasAttachments ? attachments[safeIdx] : null;
+
   return (
     <div className="popup-overlay visible" onClick={handleOverlayClick}>
-      <div className="popup popup-large">
+      <div className={`popup popup-large${hasAttachments ? ' popup-with-carousel' : ''}`}>
 
         {/* ── CABEÇALHO ── */}
         <div className="popup-header">
           <input
             className={`popup-title-input ${errors.title ? 'input-error' : ''}`}
             value={form.title ?? ''}
-            onChange={handleTitleChange}
-            onBlur={handleTitleBlur}
+            onChange={readOnly ? undefined : handleTitleChange}
+            onBlur={readOnly ? undefined : handleTitleBlur}
             placeholder="Título do post *"
-            autoFocus={isNew}
+            autoFocus={isNew && !readOnly}
+            readOnly={readOnly}
           />
           <button className="popup-close" onClick={onClose} title="Fechar">×</button>
         </div>
 
-        {/* ── IMAGEM DE CAPA (se definida) ── */}
-        {coverAttachment && (
-          <div className="popup-cover-wrap">
-            <img src={coverAttachment.url} alt="Capa" className="popup-cover-img" />
-            <button className="cover-remove-btn" onClick={() => saveField('coverId', null)}>
-              × Remover capa
+        {/* ── CORPO PRINCIPAL (esquerda: campos | direita: carrossel) ── */}
+        <div className="popup-main-row">
+        <div className="popup-main-left">
+
+        {/* ── BANNER DE NOTIFICAÇÃO (Social Media) ── */}
+        {!readOnly && form.clienteNotification && (
+          <div className={`review-notification-banner review-banner-${form.clienteReview}`}>
+            <div className="review-banner-content">
+              {form.clienteReview === 'aprovado' && (
+                <>
+                  <span className="review-banner-icon">✅</span>
+                  <div>
+                    <strong>O cliente aprovou este post!</strong>
+                    <p>Conteúdo aprovado pelo cliente.</p>
+                  </div>
+                </>
+              )}
+              {form.clienteReview === 'rejeitado' && (
+                <>
+                  <span className="review-banner-icon">❌</span>
+                  <div>
+                    <strong>O cliente rejeitou este post</strong>
+                    {form.clienteNotes && <p className="review-banner-reason">"{form.clienteNotes}"</p>}
+                  </div>
+                </>
+              )}
+              {form.clienteReview === 'ajustes' && (
+                <>
+                  <span className="review-banner-icon">✏️</span>
+                  <div>
+                    <strong>O cliente pediu ajustes</strong>
+                    {form.clienteNotes && <p className="review-banner-reason">"{form.clienteNotes}"</p>}
+                  </div>
+                </>
+              )}
+            </div>
+            <button className="review-banner-read-btn" onClick={handleMarkRead} title="Marcar como lido">
+              ✓ Marcar como lido
             </button>
           </div>
         )}
@@ -285,148 +419,231 @@ export default function PostModal({
         {/* ── CONTEÚDO ── */}
         <div className="popup-content">
 
-          {/* Data + Aprovado */}
-          <div className="popup-section">
-            <div className="field-label">
-              Data {errors.date && <span className="error-inline">⚠ obrigatório</span>}
-            </div>
-            <div className="date-approved-row">
-              <input
-                type="date"
-                className={`form-input date-input ${errors.date ? 'input-error' : ''}`}
-                value={form.date ?? ''}
-                onChange={(e) => {
-                  saveField('date', e.target.value);
-                  if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
-                }}
-              />
-              <button
-                className={`btn-approved ${form.approved ? 'btn-approved-active' : ''}`}
-                onClick={toggleApproved}
-                title={form.approved ? 'Clique para desaprovar' : 'Clique para aprovar'}
-              >
-                {form.approved ? '✓ Aprovado' : 'Aprovar'}
-              </button>
-            </div>
-          </div>
-
-          {/* Formato — pills */}
-          <div className="popup-section">
-            <div className="popup-section-label">
-              Formato {errors.format && <span className="error-inline">⚠ obrigatório</span>}
-              <button className="manage-btn" onClick={() => setManagingFormats((v) => !v)}>
-                {managingFormats ? 'Fechar' : '⚙ Gerenciar'}
-              </button>
-            </div>
-            {managingFormats ? (
-              <ManageGroup
-                items={availableFormats}
-                onAdd={onAddFormat}
-                onDelete={onDeleteFormat}
-                onRename={onRenameFormat}
-              />
-            ) : (
-              <div className={`pill-selector ${errors.format && !form.format ? 'pill-group-error' : ''}`}>
-                {availableFormats.map((f) => {
-                  const isSelected = form.format === f;
-                  return (
-                    <button
-                      key={f}
-                      className={`modal-pill ${FORMAT_CLS[f] ?? 'fmt-post'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                      onClick={() => {
-                        saveField('format', f);
-                        if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
-                      }}
-                    >
-                      {f}
-                    </button>
-                  );
-                })}
+            {/* Data + Mandar para aprovação (Social Media) */}
+          {!readOnly && (
+            <div className="popup-section">
+              <div className="field-label">
+                Data {errors.date && <span className="error-inline">⚠ obrigatório</span>}
               </div>
-            )}
-          </div>
+              <div className="date-approved-row">
+                <input
+                  type="date"
+                  className={`form-input date-input ${errors.date ? 'input-error' : ''}`}
+                  value={form.date ?? ''}
+                  onChange={(e) => {
+                    saveField('date', e.target.value);
+                    if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
+                  }}
+                />
 
-          {/* Status — pills */}
-          <div className="popup-section">
-            <div className="popup-section-label">
-              Status {errors.status && <span className="error-inline">⚠ obrigatório</span>}
-              <button className="manage-btn" onClick={() => setManagingStatuses((v) => !v)}>
-                {managingStatuses ? 'Fechar' : '⚙ Gerenciar'}
-              </button>
-            </div>
-            {managingStatuses ? (
-              <ManageGroup
-                items={availableStatuses}
-                onAdd={onAddStatus}
-                onDelete={onDeleteStatus}
-                onRename={onRenameStatus}
-              />
-            ) : (
-              <div className={`pill-selector ${errors.status && !form.status ? 'pill-group-error' : ''}`}>
-                {availableStatuses.map((s) => {
-                  const isSelected = form.status === s;
-                  return (
-                    <button
-                      key={s}
-                      className={`modal-pill ${STATUS_CLS[s] ?? 'status-planejado'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                      onClick={() => {
-                        saveField('status', s);
-                        if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
-                      }}
-                    >
-                      {s}
-                    </button>
-                  );
-                })}
+                {/* Status de aprovação do cliente */}
+                {form.clienteReview === 'aprovado' && (
+                  <span className="send-approval-status send-approval-aprovado">
+                    ✅ Aprovado pelo cliente
+                  </span>
+                )}
+                {form.clienteReview === 'rejeitado' && (
+                  <span className="send-approval-status send-approval-rejeitado">
+                    ❌ Rejeitado pelo cliente
+                  </span>
+                )}
+                {form.clienteReview === 'ajustes' && (
+                  <span className="send-approval-status send-approval-ajustes">
+                    ✏️ Ajustes solicitados
+                  </span>
+                )}
+                {!form.clienteReview && form.enviadoParaAprovacao && (
+                  <span className="send-approval-status send-approval-aguardando">
+                    ⏳ Aguardando aprovação
+                  </span>
+                )}
+                {!form.clienteReview && !form.enviadoParaAprovacao && (
+                  <button
+                    className="btn-send-approval"
+                    onClick={() => saveFields({ enviadoParaAprovacao: true, status: 'Aguardando Aprovação' })}
+                    title="Enviar este post para o cliente aprovar"
+                  >
+                    📤 Mandar para aprovação
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Etiquetas */}
-          <div className="popup-section">
-            <div className="popup-section-label">
-              Etiquetas
-              <button className="manage-btn" onClick={() => setManagingTags((v) => !v)}>
-                {managingTags ? 'Fechar' : '⚙ Gerenciar'}
-              </button>
             </div>
-            {managingTags ? (
-              <ManageGroup
-                items={availableTags}
-                onAdd={onAddTag}
-                onDelete={onDeleteTag}
-                onRename={onRenameTag}
-                colorMap={PILLAR_COLORS}
-              />
-            ) : (
-              <div className="pill-selector">
-                {availableTags.map((tag) => {
-                  const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
-                  const isSelected = (form.tags ?? []).includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      className={`post-pill modal-pill ${pColor.cls} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                      onClick={() => toggleTag(tag)}
-                      title={isSelected ? `Remover "${tag}"` : `Adicionar "${tag}"`}
-                    >
-                      {isSelected && '✓ '}{tag}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
 
-          {/* Descrição — único campo com toggle edit/save */}
+          {/* ── INFO ROW (cliente): Data · Formato · Status · Etiquetas — mesma linha ── */}
+          {readOnly ? (
+            <div className="popup-section client-info-row">
+              {/* Data */}
+              {form.date && (
+                <div className="client-info-chip">
+                  <span className="client-info-chip-label">Data</span>
+                  <input
+                    type="date"
+                    className="form-input date-input client-info-date"
+                    value={form.date}
+                    readOnly
+                  />
+                </div>
+              )}
+
+              {/* Separador visual */}
+              {form.date && (form.format || form.status || (form.tags ?? []).length > 0) && (
+                <div className="client-info-sep" />
+              )}
+
+              {form.format && (
+                <div className="client-info-chip">
+                  <span className="client-info-chip-label">Formato</span>
+                  <span className={`modal-pill pill-selected ${FORMAT_CLS[form.format] ?? 'fmt-post'}`}>
+                    {form.format}
+                  </span>
+                </div>
+              )}
+              {form.status && (
+                <div className="client-info-chip">
+                  <span className="client-info-chip-label">Status</span>
+                  <span className={`modal-pill pill-selected ${STATUS_CLS[form.status] ?? 'status-planejado'}`}>
+                    {form.status}
+                  </span>
+                </div>
+              )}
+              {(form.tags ?? []).length > 0 && (
+                <div className="client-info-chip">
+                  <span className="client-info-chip-label">Etiquetas</span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {(form.tags ?? []).map((tag) => {
+                      const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                      return (
+                        <span key={tag} className={`post-pill modal-pill ${pColor.cls} pill-selected`}>
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Formato — pills (Social Media) */}
+              <div className="popup-section">
+                <div className="popup-section-label">
+                  Formato {errors.format && <span className="error-inline">⚠ obrigatório</span>}
+                  <button className="manage-btn" onClick={() => setManagingFormats((v) => !v)}>
+                    {managingFormats ? 'Fechar' : '⚙ Gerenciar'}
+                  </button>
+                </div>
+                {managingFormats ? (
+                  <ManageGroup
+                    items={availableFormats}
+                    onAdd={onAddFormat}
+                    onDelete={onDeleteFormat}
+                    onRename={onRenameFormat}
+                  />
+                ) : (
+                  <div className={`pill-selector ${errors.format && !form.format ? 'pill-group-error' : ''}`}>
+                    {availableFormats.map((f) => {
+                      const isSelected = form.format === f;
+                      return (
+                        <button
+                          key={f}
+                          className={`modal-pill ${FORMAT_CLS[f] ?? 'fmt-post'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                          onClick={() => {
+                            saveField('format', f);
+                            if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
+                          }}
+                        >
+                          {f}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Status — pills (Social Media) */}
+              <div className="popup-section">
+                <div className="popup-section-label">
+                  Status {errors.status && <span className="error-inline">⚠ obrigatório</span>}
+                  <button className="manage-btn" onClick={() => setManagingStatuses((v) => !v)}>
+                    {managingStatuses ? 'Fechar' : '⚙ Gerenciar'}
+                  </button>
+                </div>
+                {managingStatuses ? (
+                  <ManageGroup
+                    items={availableStatuses}
+                    onAdd={onAddStatus}
+                    onDelete={onDeleteStatus}
+                    onRename={onRenameStatus}
+                  />
+                ) : (
+                  <div className={`pill-selector ${errors.status && !form.status ? 'pill-group-error' : ''}`}>
+                    {availableStatuses.map((s) => {
+                      const isSelected = form.status === s;
+                      return (
+                        <button
+                          key={s}
+                          className={`modal-pill ${STATUS_CLS[s] ?? 'status-planejado'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                          onClick={() => {
+                            saveField('status', s);
+                            if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
+                          }}
+                        >
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Etiquetas (Social Media) */}
+              <div className="popup-section">
+                <div className="popup-section-label">
+                  Etiquetas
+                  <button className="manage-btn" onClick={() => setManagingTags((v) => !v)}>
+                    {managingTags ? 'Fechar' : '⚙ Gerenciar'}
+                  </button>
+                </div>
+                {managingTags ? (
+                  <ManageGroup
+                    items={availableTags}
+                    onAdd={onAddTag}
+                    onDelete={onDeleteTag}
+                    onRename={onRenameTag}
+                    colorMap={PILLAR_COLORS}
+                  />
+                ) : (
+                  <div className="pill-selector">
+                    {availableTags.map((tag) => {
+                      const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                      const isSelected = (form.tags ?? []).includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          className={`post-pill modal-pill ${pColor.cls} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
+                          onClick={() => toggleTag(tag)}
+                          title={isSelected ? `Remover "${tag}"` : `Adicionar "${tag}"`}
+                        >
+                          {isSelected && '✓ '}{tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Descrição do Post / Legenda */}
           <div className="popup-section">
             <div className="popup-section-label">
-              Descrição / Notas
-              {!notesEditing && (
+              Descrição do Post / Legenda
+              {!readOnly && !notesEditing && (
                 <button className="notes-edit-btn" onClick={openNotes}>✏️ Editar</button>
               )}
             </div>
-            {notesEditing ? (
+            {!readOnly && notesEditing ? (
               <textarea
                 className="form-textarea notes-textarea"
                 value={notesDraft}
@@ -440,84 +657,47 @@ export default function PostModal({
               <div className="popup-body notes-view">
                 {form.notes
                   ? form.notes
-                  : <em style={{ color: '#9E9E9E' }}>Sem descrição. Clique em ✏️ Editar para adicionar.</em>
+                  : <em style={{ color: '#9E9E9E' }}>
+                      {readOnly ? 'Sem descrição.' : 'Sem descrição. Clique em ✏️ Editar para adicionar.'}
+                    </em>
                 }
               </div>
             )}
           </div>
 
-          {/* Anexos + Capa */}
-          <div className="popup-section">
-            <div className="popup-section-label">
-              Anexos
-              <button className="attach-btn" onClick={() => fileInputRef.current.click()}>
-                + Adicionar imagem
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: 'none' }}
-                onChange={handleFileAdd}
-              />
-            </div>
-
-            {(form.attachments ?? []).length > 0 ? (
-              <>
-                <p className="popup-empty" style={{ marginBottom: '8px' }}>
-                  Clique em uma imagem para definí-la como capa do modal.
+          {/* Anexos — só Social Media (cliente vê as imagens no carrossel à direita) */}
+          {!readOnly && (
+            <div className="popup-section">
+              <div className="popup-section-label">
+                Imagens
+                <button className="attach-btn" onClick={() => fileInputRef.current.click()}>
+                  + Adicionar imagem
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleFileAdd}
+                />
+              </div>
+              {!hasAttachments && (
+                <p className="popup-empty">
+                  Nenhuma imagem adicionada. Use o botão acima para adicionar.
                 </p>
-                <div className="attachment-grid">
-                  {form.attachments.map((att) => {
-                    const isCover = form.coverId === att.id;
-                    return (
-                      <div key={att.id} className={`attachment-thumb ${isCover ? 'attachment-is-cover' : ''} ${att.uploading ? 'attachment-uploading' : ''} ${att.error ? 'attachment-error' : ''}`}>
-                        <img
-                          src={att.url}
-                          alt={att.name}
-                          onClick={() => !att.uploading && toggleCover(att.id)}
-                          title={
-                            att.uploading ? 'Enviando imagem…'
-                            : att.error    ? 'Falha no envio'
-                            : isCover      ? 'Clique para remover como capa'
-                            :                'Clique para definir como capa'
-                          }
-                          style={{ opacity: att.uploading ? 0.5 : 1 }}
-                        />
-                        {/* Indicador de status sobre a imagem */}
-                        {att.uploading && (
-                          <div className="att-status-overlay">
-                            <span className="att-spinner" /> Enviando…
-                          </div>
-                        )}
-                        {att.error && (
-                          <div className="att-status-overlay att-error-overlay">
-                            ⚠ Falha
-                          </div>
-                        )}
-                        {isCover && !att.uploading && <div className="cover-badge">🖼 Capa</div>}
-                        <button
-                          className="attachment-remove"
-                          onClick={() => removeAttachment(att.id)}
-                          disabled={att.uploading}
-                        >×</button>
-                        <div className="attachment-name">{att.name}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="popup-empty">
-                Nenhum anexo adicionado. Após adicionar imagens, clique para definir a capa.
-              </p>
-            )}
-          </div>
+              )}
+              {hasAttachments && (
+                <p className="popup-empty" style={{ fontStyle: 'normal', color: 'var(--verde-escuro)' }}>
+                  {attachments.length} imagem(ns) — visualize e gerencie no painel ao lado.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ── HISTÓRICO DE ALTERAÇÕES (colapsável) ── */}
-        {showHistory && (
+        {/* ── HISTÓRICO DE ALTERAÇÕES — somente Social Media ── */}
+        {!readOnly && showHistory && (
           <div className="history-panel">
             <div className="history-panel-header">
               📋 Histórico de Alterações
@@ -544,39 +724,224 @@ export default function PostModal({
           </div>
         )}
 
-        {/* ── RODAPÉ ── */}
-        <div className="popup-footer">
-          {/* Excluir — só para posts existentes */}
-          {!isNew && (
-            <button className="btn-danger" onClick={() => onDelete(post)}>🗑 Excluir</button>
-          )}
+        </div>{/* fim popup-main-left */}
 
-          {/* Spacer empurra histórico e ações para a direita */}
-          <div style={{ flex: 1 }} />
+        {/* ── CARROSSEL (painel direito) ── */}
+        {hasAttachments && (
+          <div className="popup-carousel-col">
 
-          {/* Histórico — sempre visível */}
-          <button
-            className={`btn-history ${showHistory ? 'btn-history-active' : ''}`}
-            onClick={() => setShowHistory((v) => !v)}
-            title="Ver histórico de alterações"
-          >
-            📋 Histórico{(form.history ?? []).length > 0 && ` (${form.history.length})`}
-          </button>
-
-          {/* Criar Post — só para posts novos */}
-          {isNew && (
-            <>
-              {hasErrors && (
-                <span className="error-msg" style={{ margin: 0 }}>
-                  ⚠ Preencha os campos obrigatórios.
-                </span>
+            {/* Imagem principal */}
+            <div className="carousel-main">
+              {activeAtt && (
+                <>
+                  <img
+                    src={activeAtt.url}
+                    alt={activeAtt.name}
+                    className="carousel-main-img"
+                    style={{ opacity: activeAtt.uploading ? 0.5 : 1 }}
+                  />
+                  {activeAtt.uploading && (
+                    <div className="att-status-overlay">
+                      <span className="att-spinner" /> Enviando…
+                    </div>
+                  )}
+                  {activeAtt.error && (
+                    <div className="att-status-overlay att-error-overlay">⚠ Falha no envio</div>
+                  )}
+                  {/* Setas de navegação */}
+                  {attachments.length > 1 && (
+                    <>
+                      <button
+                        className="carousel-arrow carousel-arrow-prev"
+                        onClick={() => setCarouselIdx((i) => (i === 0 ? attachments.length - 1 : i - 1))}
+                      >‹</button>
+                      <button
+                        className="carousel-arrow carousel-arrow-next"
+                        onClick={() => setCarouselIdx((i) => (i === attachments.length - 1 ? 0 : i + 1))}
+                      >›</button>
+                    </>
+                  )}
+                  {/* Ações Social Media sobre a imagem */}
+                  {!readOnly && (
+                    <div className="carousel-main-actions">
+                      <button
+                        className={`carousel-cover-btn${activeAtt.id === form.coverId ? ' carousel-cover-btn-active' : ''}`}
+                        onClick={() => !activeAtt.uploading && toggleCover(activeAtt.id)}
+                        disabled={activeAtt.uploading}
+                      >
+                        {activeAtt.id === form.coverId ? '🖼 Capa definida' : 'Definir como capa'}
+                      </button>
+                      <button
+                        className="carousel-remove-btn"
+                        onClick={() => { removeAttachment(activeAtt.id); setCarouselIdx(0); }}
+                        disabled={activeAtt.uploading}
+                      >× Remover</button>
+                    </div>
+                  )}
+                </>
               )}
-              <button className="btn-primary" onClick={handleCreate}>
-                ✓ Criar Post
-              </button>
-            </>
-          )}
-        </div>
+            </div>
+
+            {/* Contador + nome */}
+            <div className="carousel-counter">
+              <span>{safeIdx + 1} / {attachments.length}</span>
+              {activeAtt && <span className="carousel-filename">{activeAtt.name}</span>}
+            </div>
+
+            {/* Thumbnails */}
+            {attachments.length > 1 && (
+              <div className="carousel-thumbs">
+                {attachments.map((att, i) => (
+                  <button
+                    key={att.id}
+                    className={[
+                      'carousel-thumb',
+                      i === safeIdx            ? 'carousel-thumb-active'  : '',
+                      att.id === form.coverId  ? 'carousel-thumb-cover'   : '',
+                      att.uploading            ? 'carousel-thumb-loading' : '',
+                    ].join(' ').trim()}
+                    onClick={() => setCarouselIdx(i)}
+                    title={att.name}
+                  >
+                    <img src={att.url} alt={att.name} />
+                    {att.id === form.coverId && <span className="carousel-thumb-badge">Capa</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        </div>{/* fim popup-main-row */}
+
+        {/* ── RODAPÉ CLIENTE ── */}
+        {readOnly && (
+          <div className="popup-footer-review">
+
+            {/* Barra de progresso da fila */}
+            {isInApprovalMode && (
+              <div className="review-progress-bar">
+                <div className="review-progress-label">
+                  Revisando post <strong>{approvalIdx + 1}</strong> de <strong>{approvalTotal}</strong>
+                </div>
+                <div className="review-progress-track">
+                  <div
+                    className="review-progress-fill"
+                    style={{ width: `${((approvalIdx + 1) / approvalTotal) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Status do review já enviado (fora de modo rejeição/ajustes) */}
+            {reviewSent && !reviewMode && (
+              <div className="review-sent-feedback">
+                {form.clienteReview === 'aprovado'  && <span className="review-sent-pill review-sent-aprovado">✅ Aprovado!</span>}
+                {form.clienteReview === 'rejeitado' && <span className="review-sent-pill review-sent-rejeitado">❌ Rejeitado</span>}
+                {form.clienteReview === 'ajustes'   && <span className="review-sent-pill review-sent-ajustes">✏️ Ajustes enviados</span>}
+                {isInApprovalMode && <span className="review-sent-next">Avançando…</span>}
+              </div>
+            )}
+
+            {/* Painel de texto — Rejeição */}
+            {reviewMode === 'rejeitado' && (
+              <div className="review-footer-panel review-footer-rejeitar">
+                <p className="review-footer-panel-label">Motivo da rejeição:</p>
+                <textarea
+                  className="form-textarea review-textarea"
+                  value={reviewDraft}
+                  onChange={(e) => setReviewDraft(e.target.value)}
+                  placeholder="Ex.: O texto não representa nossa marca..."
+                  rows={2}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Painel de texto — Ajustes */}
+            {reviewMode === 'ajustes' && (
+              <div className="review-footer-panel review-footer-ajustes">
+                <p className="review-footer-panel-label">Descreva os ajustes ou considerações:</p>
+                <textarea
+                  className="form-textarea review-textarea"
+                  value={reviewDraft}
+                  onChange={(e) => setReviewDraft(e.target.value)}
+                  placeholder="Ex.: Mudar a cor, alterar o texto do CTA..."
+                  rows={2}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Botões principais */}
+            {!reviewSent && (
+              <div className="review-footer-btns">
+                {!reviewMode ? (
+                  <>
+                    <button className="review-footer-btn review-footer-btn-rejeitar"
+                      onClick={() => { setReviewMode('rejeitado'); setReviewDraft(''); }}>
+                      ✗ Rejeitar
+                    </button>
+                    <button className="review-footer-btn review-footer-btn-ajustes"
+                      onClick={() => { setReviewMode('ajustes'); setReviewDraft(form.clienteNotes ?? ''); }}>
+                      ✏ Pedir Ajustes
+                    </button>
+                    <button className="review-footer-btn review-footer-btn-aprovar"
+                      onClick={handleAprovar}>
+                      ✓ Aprovar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="review-footer-btn review-footer-btn-cancel"
+                      onClick={() => setReviewMode(null)}>
+                      ← Voltar
+                    </button>
+                    <button
+                      className={`review-footer-btn ${reviewMode === 'rejeitado' ? 'review-footer-btn-rejeitar' : 'review-footer-btn-ajustes'}`}
+                      onClick={handleConfirmReview}
+                      disabled={!reviewDraft.trim()}
+                    >
+                      {reviewMode === 'rejeitado' ? '✗ Confirmar Rejeição' : '✏ Enviar Ajustes'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ── RODAPÉ SOCIAL MEDIA ── */}
+        {!readOnly && (
+          <div className="popup-footer">
+            {/* Excluir — só para posts existentes */}
+            {!isNew && (
+              <button className="btn-danger" onClick={() => onDelete(post)}>🗑 Excluir</button>
+            )}
+            <div style={{ flex: 1 }} />
+            <button
+              className={`btn-history ${showHistory ? 'btn-history-active' : ''}`}
+              onClick={() => setShowHistory((v) => !v)}
+              title="Ver histórico de alterações"
+            >
+              📋 Histórico{(form.history ?? []).length > 0 && ` (${form.history.length})`}
+            </button>
+            {isNew && (
+              <>
+                {hasErrors && (
+                  <span className="error-msg" style={{ margin: 0 }}>
+                    ⚠ Preencha os campos obrigatórios.
+                  </span>
+                )}
+                <button className="btn-primary" onClick={handleCreate}>
+                  ✓ Criar Post
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

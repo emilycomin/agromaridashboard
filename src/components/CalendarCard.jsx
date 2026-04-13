@@ -50,23 +50,24 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
           ))}
 
           {calendarDays.map((day, idx) => {
-            const isToday     = day.dateStr === TODAY_STR;
-            const isPast      = !day.isOtherMonth && day.dateStr && day.dateStr < TODAY_STR;
-            const isClickable = !day.isOtherMonth && day.dateStr;
+            const isToday          = day.dateStr === TODAY_STR;
+            const isPast           = !day.isOtherMonth && day.dateStr && day.dateStr < TODAY_STR;
+            const isClickable      = !day.isOtherMonth && day.dateStr;
+            const canCreatePost    = isClickable && !!onNewPost;
 
             return (
               <div
                 key={idx}
                 className={[
                   'cal-day',
-                  day.isOtherMonth ? 'other-month'    : '',
-                  isToday          ? 'today'           : '',
-                  isPast           ? 'past'            : '',
-                  day.posts.length ? 'has-post'        : '',
-                  isClickable      ? 'cal-day-clickable' : '',
+                  day.isOtherMonth ? 'other-month'      : '',
+                  isToday          ? 'today'             : '',
+                  isPast           ? 'past'              : '',
+                  day.posts.length ? 'has-post'          : '',
+                  canCreatePost    ? 'cal-day-clickable' : '',
                 ].join(' ').trim()}
-                onClick={() => isClickable && onNewPost(day.dateStr)}
-                title={isClickable ? `Novo post em ${day.num}` : undefined}
+                onClick={() => canCreatePost && onNewPost(day.dateStr)}
+                title={canCreatePost ? `Novo post em ${day.num}` : undefined}
               >
                 {/* Número do dia + badge "Hoje" */}
                 <div className="day-num">
@@ -81,10 +82,18 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
                     <div
                       key={pIdx}
                       className={`post-pill ${pc.cls}`}
+                      style={{ position: 'relative' }}
                       title={post.title}
                       onClick={(e) => { e.stopPropagation(); onPostClick(post); }}
                     >
                       {formatIcon(post.format)} {post.title}
+                      {post.clienteNotification && (
+                        <span
+                          className="notif-dot"
+                          style={{ position: 'absolute', top: '-3px', right: '-3px', width: '8px', height: '8px', border: '1.5px solid #fff' }}
+                          title="Notificação do cliente"
+                        />
+                      )}
                     </div>
                   );
                 })}

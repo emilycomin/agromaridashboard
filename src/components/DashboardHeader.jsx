@@ -1,6 +1,13 @@
 import { MONTH_NAMES } from '../constants';
 
-export default function DashboardHeader({ currentMonth, onMonthChange }) {
+const ROLE_INFO = {
+  'social-media': { label: 'Social Media', icon: '✏️' },
+  'cliente':      { label: 'Cliente',       icon: '👁' },
+};
+
+export default function DashboardHeader({ currentMonth, onMonthChange, userRole, onLogout }) {
+  const role = ROLE_INFO[userRole];
+
   return (
     <div className="header">
       <div className="header-left">
@@ -11,6 +18,11 @@ export default function DashboardHeader({ currentMonth, onMonthChange }) {
         </div>
       </div>
       <div className="header-filters">
+        {role && (
+          <div className="role-badge">
+            {role.icon} {role.label}
+          </div>
+        )}
         <div className="filter-chip">
           📅
           <select value={currentMonth} onChange={(e) => onMonthChange(Number(e.target.value))}>
@@ -19,6 +31,11 @@ export default function DashboardHeader({ currentMonth, onMonthChange }) {
             ))}
           </select>
         </div>
+        {onLogout && (
+          <button className="logout-btn" onClick={onLogout} title="Trocar perfil">
+            ↩ Trocar perfil
+          </button>
+        )}
       </div>
     </div>
   );
