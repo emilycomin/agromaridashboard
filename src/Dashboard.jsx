@@ -8,6 +8,8 @@ import CalendarCard from './components/CalendarCard';
 import ChartsSection from './components/ChartsSection';
 import PostsTable from './components/PostsTable';
 import PostModal from './components/PostModal';
+import MeetingsWidget from './components/MeetingsWidget';
+import GoogleCalendarWidget from './components/GoogleCalendarWidget';
 import './Dashboard.css';
 
 const NEW_POST_TEMPLATE = {
@@ -409,6 +411,9 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
 
         <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
 
+        {/* Widget de reuniões — visível apenas no perfil Cliente, abaixo dos KPIs */}
+        {isCliente && <MeetingsWidget />}
+
         <CalendarCard
           currentMonth={calendarMonth}
           calendarDays={calendarDays}
@@ -423,6 +428,9 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         />
 
         <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
+
+        {/* Google Calendar Widget — visível apenas no perfil Social Media, acima da lista */}
+        {!isCliente && <GoogleCalendarWidget />}
 
         {!isCliente && (
           <PostsTable

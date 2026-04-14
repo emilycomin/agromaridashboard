@@ -589,13 +589,43 @@
     }
     .post-pill:hover { opacity: 0.8; }
 
-    /* Pills dentro das células do calendário — área de clique maior */
+    /* Pills dentro das células do calendário — layout flex para capa + texto + ícone */
     .cal-day .post-pill {
-      display: block;
-      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
       font-size: 11px;
       margin-top: 4px;
       border-radius: 5px;
+      overflow: hidden;
+    }
+
+    /* Texto do pill (formato + título) */
+    .cal-pill-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    /* Ícone de status de aprovação no pill */
+    .cal-pill-review-icon {
+      flex-shrink: 0;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    /* Cores dos ícones de aprovação */
+    .cal-review-aprovado  { color: #2D7D3A !important; }
+    .cal-review-ajustes   { color: #E65100 !important; }
+    .cal-review-rejeitado { color: #C62828 !important; }
+
+    /* Ícone de status na legenda do calendário */
+    .cal-legend-review-icon {
+      font-size: 12px;
+      line-height: 1;
     }
 
     /* pillar colors */
@@ -856,6 +886,254 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
+    /* ====== MEETINGS WIDGET (perfil Cliente) ====== */
+    .meetings-widget {
+      margin-bottom: 20px;
+    }
+    .meetings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--cinza-borda);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .meetings-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .meetings-title h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--preto);
+      margin: 0;
+    }
+    .meetings-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+    .meetings-demo-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #FFF8E1;
+      color: #F57F17;
+      border: 1px solid #FFE082;
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+    .btn-agendar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--verde);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-agendar:hover { background: var(--verde-escuro); }
+
+    .meetings-body {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .meetings-empty {
+      padding: 16px;
+      text-align: center;
+      color: var(--cinza-texto);
+      font-size: 13px;
+    }
+    .meetings-error {
+      padding: 12px 16px;
+      background: #FFEBEE;
+      color: #C62828;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .meeting-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.12s;
+      cursor: pointer;
+    }
+    .meeting-item:hover { background: var(--cinza-bg); }
+    .meeting-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--verde);
+      flex-shrink: 0;
+    }
+    .meeting-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .meeting-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--preto);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meeting-time {
+      font-size: 11px;
+      color: var(--cinza-texto);
+      text-transform: capitalize;
+    }
+    .meeting-arrow {
+      color: var(--cinza-texto);
+      font-size: 18px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .meetings-setup-tip {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--azul-claro);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #1565C0;
+      line-height: 1.5;
+    }
+    .meetings-setup-tip code {
+      background: rgba(21,101,192,0.1);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    /* ====== GOOGLE CALENDAR WIDGET (perfil Social Media) ====== */
+    .gcal-widget {
+      margin-bottom: 20px;
+    }
+    .gcal-widget-collapsed .gcal-body { display: none; }
+    .gcal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--cinza-borda);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .gcal-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .gcal-title h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--preto);
+      margin: 0;
+    }
+    .gcal-icon { font-size: 20px; line-height: 1; }
+    .gcal-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gcal-collapse-btn {
+      background: var(--cinza-bg);
+      border: 1px solid var(--cinza-borda);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--cinza-texto);
+      transition: background 0.12s;
+    }
+    .gcal-collapse-btn:hover { background: #E0E0E0; }
+
+    .gcal-body {
+      padding: 16px;
+    }
+    .gcal-events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .gcal-event-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--cinza-borda);
+      border-radius: 10px;
+      text-decoration: none;
+      color: inherit;
+      background: #fff;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .gcal-event-card:hover {
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+      border-color: var(--verde-medio);
+    }
+    .gcal-event-date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      background: var(--verde-claro);
+      border-radius: 8px;
+      padding: 6px 4px;
+    }
+    .gcal-event-day {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--verde-escuro);
+      line-height: 1;
+    }
+    .gcal-event-month {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--verde);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .gcal-event-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .gcal-event-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--preto);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gcal-event-time {
+      font-size: 11px;
+      color: var(--cinza-texto);
+    }
+
     /* ====== RODAPÉ DO MODAL — REVIEW CLIENTE ====== */
     .popup-footer-review {
       border-top: 2px solid #E0E0E0;
@@ -965,6 +1243,24 @@
       flex: 0 0 auto;
       padding: 16px 18px;
       border-right: 1px solid #E0E0E0;
+    }
+
+    /* Mensagem "conteúdo em produção" */
+    .review-not-sent-msg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 18px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #546E7A;
+      background: #F5F5F5;
+      border-top: 1px solid #E0E0E0;
+    }
+    .review-not-sent-icon {
+      font-size: 18px;
+      line-height: 1;
     }
 
     /* ====== REVIEW DO CLIENTE — NOTIFICAÇÕES ====== */

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PILLAR_COLORS, formatIcon } from '../constants';
+import { PILLAR_COLORS } from '../constants';
 
 const TABLE_FILTERS = ['all', 'Reel', 'Carrossel', 'Post', 'Educação', 'Antes/Depois', 'Humanização'];
 
@@ -157,7 +157,7 @@ export default function PostsTable({ posts, tableFilter, onFilterChange, onSort,
                         {post.clienteNotification && (
                           <span className="notif-dot" style={{ marginRight: '6px', verticalAlign: 'middle' }} title="Notificação do cliente" />
                         )}
-                        {formatIcon(post.format)} {post.title}
+                        {post.title}
                       </td>
                       <td>
                         {hasFiles && (

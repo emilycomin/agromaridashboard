@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { MONTH_NAMES, DAY_NAMES, TODAY_STR, PILLAR_COLORS, formatIcon } from '../constants';
+import { MONTH_NAMES, DAY_NAMES, TODAY_STR, PILLAR_COLORS } from '../constants';
 
 export default function CalendarCard({ currentMonth, calendarDays, onMonthChange, onPostClick, onNewPost }) {
   return (
@@ -92,12 +92,6 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
                 {day.posts.map((post, pIdx) => {
                   const pc = PILLAR_COLORS[post.tags?.[0]] || PILLAR_COLORS['Especial'];
 
-                  // Imagem de capa: usa coverId ou primeira imagem disponível
-                  const coverAtt = post.coverId
-                    ? post.attachments?.find((a) => a.id === post.coverId)
-                    : post.attachments?.[0];
-                  const coverUrl = coverAtt?.url;
-
                   return (
                     <div
                       key={pIdx}
@@ -106,19 +100,9 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
                       title={post.title}
                       onClick={(e) => { e.stopPropagation(); onPostClick(post); }}
                     >
-                      {/* Miniatura da capa */}
-                      {coverUrl && (
-                        <img
-                          className="cal-pill-cover"
-                          src={coverUrl}
-                          alt=""
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                      )}
-
-                      {/* Ícone de formato + título */}
+                      {/* Título */}
                       <span className="cal-pill-text">
-                        {formatIcon(post.format)} {post.title}
+                        {post.title}
                       </span>
 
                       {/* Ícone de status de aprovação */}
