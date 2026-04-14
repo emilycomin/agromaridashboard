@@ -30,13 +30,15 @@ export default function App() {
   }
 
   // 3) Cliente selecionado → dashboard
+  // onBack só existe para Social Media — cliente vai direto ao dashboard sem retorno à workspace
+  const isSM = userRole === 'social-media';
   return (
     <Dashboard
       userRole={userRole}
       clientId={activeClient.id}
       clientMeta={activeClient}
       onLogout={handleLogout}
-      onBack={() => setActiveClient(null)}
+      onBack={isSM ? () => setActiveClient(null) : undefined}
     />
   );
 }

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(dir \"C:\\\\Users\\\\Emily Comin\\\\Desktop\\\\Dashboard Agromari\\\\agromaridashboard\\\\src\" /b)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "Bash(npm install:*)",
+      "Bash(npm list:*)"
     ]
   }
 }

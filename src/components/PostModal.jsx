@@ -1,6 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
+import { TextInput, Textarea, Select, Popover } from '@mantine/core';
+import { RichTextEditor, Link } from '@mantine/tiptap';
+import { useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import { DatePicker, Splitter, Carousel, Image } from 'antd';
+import ptBR from 'antd/locale/pt_BR';
+import { ConfigProvider } from 'antd';
+import dayjs from 'dayjs';
+import 'dayjs/locale/pt-br';
 import { PILLAR_COLORS } from '../constants';
 import { uploadAttachment, deleteAttachment } from '../services/storage';
+
+dayjs.locale('pt-br');
 
 // Mapa de classes de cor para pills de formato e status
 const FORMAT_CLS = {
@@ -107,17 +119,32 @@ export default function PostModal({
   const [form, setForm] = useState(() => post ?? {});
   const formRef = useRef(form);
 
-  const [notesEditing, setNotesEditing] = useState(false);
-  const [notesDraft, setNotesDraft] = useState(post?.notes ?? '');
+  // ─── RICH TEXT EDITOR (Descrição / Legenda) ──────────────────────────────────
+  // useEditor deve ser chamado antes do early-return (regras dos hooks)
+  const editor = useEditor({
+    extensions: [StarterKit, Underline, Link],
+    content: post?.notes ?? '',
+    editable: !readOnly,
+    onBlur: ({ editor: ed }) => {
+      if (readOnly) return;
+      const html = ed.getHTML();
+      const newForm = { ...formRef.current, notes: html };
+      formRef.current = newForm;
+      setForm(newForm);
+      if (newForm.id) onSave(newForm);
+    },
+  });
 
   const [managingTags, setManagingTags] = useState(false);
   const [managingFormats, setManagingFormats] = useState(false);
   const [managingStatuses, setManagingStatuses] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   const [showHistory, setShowHistory] = useState(false);
 
   const [errors, setErrors] = useState({});
-  const fileInputRef = useRef(null);
+  const fileInputRef  = useRef(null);
+  const carouselRef   = useRef(null);
 
   // ─── REVIEW DO CLIENTE ────────────────────────────────────────────────────────
   const [reviewMode, setReviewMode]       = useState(null); // null | 'rejeitado' | 'ajustes'
@@ -153,6 +180,15 @@ export default function PostModal({
     formRef.current = updated;
     setForm(updated);
   }, [post?.clienteReview, post?.clienteNotes, post?.clienteNotification, post?.enviadoParaAprovacao]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sincroniza o conteúdo do editor quando o post muda externamente (Firestore)
+  // Só atualiza se o editor não estiver em foco para não interromper a digitação
+  useEffect(() => {
+    if (!editor || editor.isFocused) return;
+    const incoming = post?.notes ?? '';
+    const current  = editor.getHTML();
+    if (incoming !== current) editor.commands.setContent(incoming, false);
+  }, [post?.notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!post) return null;
 
@@ -207,17 +243,6 @@ export default function PostModal({
 
   // ─── APROVADO ─────────────────────────────────────────────────────────────
   const toggleApproved = () => saveField('approved', !formRef.current.approved);
-
-  // ─── NOTAS (textarea com save no blur) ────────────────────────────────────
-  const openNotes = () => {
-    setNotesDraft(formRef.current.notes ?? '');
-    setNotesEditing(true);
-  };
-
-  const handleNotesBlur = () => {
-    saveFields({ notes: notesDraft });
-    setNotesEditing(false);
-  };
 
   // ─── ANEXOS + FIREBASE STORAGE ───────────────────────────────────────────
   const handleFileAdd = async (e) => {
@@ -358,24 +383,28 @@ export default function PostModal({
 
   return (
     <div className="popup-overlay visible" onClick={handleOverlayClick}>
-      <div className={`popup popup-large${hasAttachments ? ' popup-with-carousel' : ''}`}>
+      <div className="popup popup-large popup-with-carousel">
 
         {/* ── CABEÇALHO ── */}
         <div className="popup-header">
-          <input
-            className={`popup-title-input ${errors.title ? 'input-error' : ''}`}
+          <TextInput
             value={form.title ?? ''}
             onChange={readOnly ? undefined : handleTitleChange}
             onBlur={readOnly ? undefined : handleTitleBlur}
             placeholder="Título do post *"
             autoFocus={isNew && !readOnly}
             readOnly={readOnly}
+            error={errors.title ? 'Título obrigatório' : null}
+            variant="unstyled"
+            classNames={{ input: `popup-title-input${errors.title ? ' input-error' : ''}` }}
+            style={{ flex: 1, minWidth: 0 }}
           />
           <button className="popup-close" onClick={onClose} title="Fechar">×</button>
         </div>
 
-        {/* ── CORPO PRINCIPAL (esquerda: campos | direita: carrossel) ── */}
-        <div className="popup-main-row">
+        {/* ── CORPO PRINCIPAL: Splitter esquerda / direita ── */}
+        <Splitter className="popup-splitter-body">
+        <Splitter.Panel defaultSize="55%" min="38%" className="popup-splitter-left">
         <div className="popup-main-left">
 
         {/* ── BANNER DE NOTIFICAÇÃO (Social Media) ── */}
@@ -426,15 +455,21 @@ export default function PostModal({
                 Data {errors.date && <span className="error-inline">⚠ obrigatório</span>}
               </div>
               <div className="date-approved-row">
-                <input
-                  type="date"
-                  className={`form-input date-input ${errors.date ? 'input-error' : ''}`}
-                  value={form.date ?? ''}
-                  onChange={(e) => {
-                    saveField('date', e.target.value);
-                    if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
-                  }}
-                />
+                <ConfigProvider locale={ptBR}>
+                  <DatePicker
+                    value={form.date ? dayjs(form.date) : null}
+                    onChange={(date) => {
+                      const val = date ? date.format('YYYY-MM-DD') : '';
+                      saveField('date', val);
+                      if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
+                    }}
+                    format="DD/MM/YYYY"
+                    placeholder="Selecionar data *"
+                    status={errors.date ? 'error' : ''}
+                    style={{ flex: 'none' }}
+                    popupClassName="date-picker-popup"
+                  />
+                </ConfigProvider>
 
                 {/* Status de aprovação do cliente */}
                 {form.clienteReview === 'aprovado' && (
@@ -472,60 +507,118 @@ export default function PostModal({
 
           {/* ── INFO ROW (cliente): Data · Formato · Status · Etiquetas — mesma linha ── */}
           {readOnly ? (
-            <div className="popup-section client-info-row">
+            <div className="popup-section client-info-mantine">
               {/* Data */}
               {form.date && (
                 <div className="client-info-chip">
                   <span className="client-info-chip-label">Data</span>
-                  <input
-                    type="date"
-                    className="form-input date-input client-info-date"
-                    value={form.date}
-                    readOnly
-                  />
+                  <ConfigProvider locale={ptBR}>
+                    <DatePicker
+                      value={form.date ? dayjs(form.date) : null}
+                      format="DD/MM/YYYY"
+                      disabled
+                      style={{ width: '100%' }}
+                    />
+                  </ConfigProvider>
                 </div>
               )}
 
-              {/* Separador visual */}
-              {form.date && (form.format || form.status || (form.tags ?? []).length > 0) && (
-                <div className="client-info-sep" />
+              {/* Formato — Select readOnly */}
+              {availableFormats.length > 0 && (
+                <Select
+                  label="Formato"
+                  data={availableFormats}
+                  value={form.format ?? null}
+                  readOnly
+                  variant="filled"
+                  placeholder="—"
+                  renderOption={({ option }) => (
+                    <span className={`modal-pill pill-selected ${FORMAT_CLS[option.value] ?? 'fmt-post'}`}
+                      style={{ fontSize: 12 }}>
+                      {option.label}
+                    </span>
+                  )}
+                />
               )}
 
-              {form.format && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Formato</span>
-                  <span className={`modal-pill pill-selected ${FORMAT_CLS[form.format] ?? 'fmt-post'}`}>
-                    {form.format}
-                  </span>
-                </div>
+              {/* Status — Select readOnly */}
+              {availableStatuses.length > 0 && (
+                <Select
+                  label="Status"
+                  data={availableStatuses}
+                  value={form.status ?? null}
+                  readOnly
+                  variant="filled"
+                  placeholder="—"
+                  renderOption={({ option }) => (
+                    <span className={`modal-pill pill-selected ${STATUS_CLS[option.value] ?? 'status-planejado'}`}
+                      style={{ fontSize: 12 }}>
+                      {option.label}
+                    </span>
+                  )}
+                />
               )}
-              {form.status && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Status</span>
-                  <span className={`modal-pill pill-selected ${STATUS_CLS[form.status] ?? 'status-planejado'}`}>
-                    {form.status}
-                  </span>
-                </div>
-              )}
-              {(form.tags ?? []).length > 0 && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Etiquetas</span>
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    {(form.tags ?? []).map((tag) => {
-                      const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
-                      return (
-                        <span key={tag} className={`post-pill modal-pill ${pColor.cls} pill-selected`}>
-                          {tag}
-                        </span>
-                      );
-                    })}
-                  </div>
+
+              {/* Etiquetas — Popover readOnly */}
+              {availableTags.length > 0 && (
+                <div>
+                  <span className="mantine-label-fake">Etiquetas</span>
+                  <Popover
+                    opened={tagsOpen}
+                    onChange={setTagsOpen}
+                    position="bottom-start"
+                    width="target"
+                    withinPortal
+                  >
+                    <Popover.Target>
+                      <div
+                        className={`tags-trigger tags-trigger-readonly${tagsOpen ? ' tags-trigger-open' : ''}`}
+                        onClick={() => setTagsOpen((o) => !o)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && setTagsOpen((o) => !o)}
+                      >
+                        {(form.tags ?? []).length === 0 ? (
+                          <span className="tags-trigger-placeholder">—</span>
+                        ) : (
+                          <div className="tags-trigger-chips">
+                            {(form.tags ?? []).map((tag) => {
+                              const pc = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                              return (
+                                <span key={tag} className={`post-pill modal-pill ${pc.cls} pill-selected`}>
+                                  {tag}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <span className="tags-trigger-arrow">{tagsOpen ? '▲' : '▼'}</span>
+                      </div>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <p className="tags-popover-header">Etiquetas do post</p>
+                      <div className="tags-popover-grid">
+                        {availableTags.map((tag) => {
+                          const pc    = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                          const isSel = (form.tags ?? []).includes(tag);
+                          return (
+                            <span
+                              key={tag}
+                              className={`post-pill modal-pill ${pc.cls} ${isSel ? 'pill-selected' : 'pill-unselected pill-readonly'}`}
+                            >
+                              {isSel ? '✓ ' : ''}{tag}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </Popover.Dropdown>
+                  </Popover>
                 </div>
               )}
             </div>
           ) : (
             <>
-              {/* Formato — pills (Social Media) */}
+              {/* Formato — Select (Social Media) */}
               <div className="popup-section">
                 <div className="popup-section-label">
                   Formato {errors.format && <span className="error-inline">⚠ obrigatório</span>}
@@ -541,27 +634,22 @@ export default function PostModal({
                     onRename={onRenameFormat}
                   />
                 ) : (
-                  <div className={`pill-selector ${errors.format && !form.format ? 'pill-group-error' : ''}`}>
-                    {availableFormats.map((f) => {
-                      const isSelected = form.format === f;
-                      return (
-                        <button
-                          key={f}
-                          className={`modal-pill ${FORMAT_CLS[f] ?? 'fmt-post'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                          onClick={() => {
-                            saveField('format', f);
-                            if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
-                          }}
-                        >
-                          {f}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <Select
+                    data={availableFormats}
+                    value={form.format ?? null}
+                    onChange={(val) => {
+                      saveField('format', val ?? '');
+                      if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
+                    }}
+                    placeholder="Selecionar formato..."
+                    error={errors.format && !form.format ? 'Obrigatório' : null}
+                    clearable
+                    allowDeselect
+                  />
                 )}
               </div>
 
-              {/* Status — pills (Social Media) */}
+              {/* Status — Select (Social Media) */}
               <div className="popup-section">
                 <div className="popup-section-label">
                   Status {errors.status && <span className="error-inline">⚠ obrigatório</span>}
@@ -577,27 +665,28 @@ export default function PostModal({
                     onRename={onRenameStatus}
                   />
                 ) : (
-                  <div className={`pill-selector ${errors.status && !form.status ? 'pill-group-error' : ''}`}>
-                    {availableStatuses.map((s) => {
-                      const isSelected = form.status === s;
-                      return (
-                        <button
-                          key={s}
-                          className={`modal-pill ${STATUS_CLS[s] ?? 'status-planejado'} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                          onClick={() => {
-                            saveField('status', s);
-                            if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
-                          }}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <Select
+                    data={availableStatuses}
+                    value={form.status ?? null}
+                    onChange={(val) => {
+                      saveField('status', val ?? '');
+                      if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
+                    }}
+                    placeholder="Selecionar status..."
+                    error={errors.status && !form.status ? 'Obrigatório' : null}
+                    clearable
+                    allowDeselect
+                    renderOption={({ option }) => (
+                      <span className={`modal-pill pill-selected ${STATUS_CLS[option.value] ?? 'status-planejado'}`}
+                        style={{ fontSize: 12 }}>
+                        {option.label}
+                      </span>
+                    )}
+                  />
                 )}
               </div>
 
-              {/* Etiquetas (Social Media) */}
+              {/* Etiquetas — MultiSelect (Social Media) */}
               <div className="popup-section">
                 <div className="popup-section-label">
                   Etiquetas
@@ -614,86 +703,98 @@ export default function PostModal({
                     colorMap={PILLAR_COLORS}
                   />
                 ) : (
-                  <div className="pill-selector">
-                    {availableTags.map((tag) => {
-                      const pColor = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
-                      const isSelected = (form.tags ?? []).includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          className={`post-pill modal-pill ${pColor.cls} ${isSelected ? 'pill-selected' : 'pill-unselected'}`}
-                          onClick={() => toggleTag(tag)}
-                          title={isSelected ? `Remover "${tag}"` : `Adicionar "${tag}"`}
-                        >
-                          {isSelected && '✓ '}{tag}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <Popover
+                    opened={tagsOpen}
+                    onChange={setTagsOpen}
+                    position="bottom-start"
+                    width="target"
+                    withinPortal
+                  >
+                    <Popover.Target>
+                      <div
+                        className={`tags-trigger${tagsOpen ? ' tags-trigger-open' : ''}`}
+                        onClick={() => setTagsOpen((o) => !o)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && setTagsOpen((o) => !o)}
+                      >
+                        {(form.tags ?? []).length === 0 ? (
+                          <span className="tags-trigger-placeholder">Selecionar etiquetas...</span>
+                        ) : (
+                          <div className="tags-trigger-chips">
+                            {(form.tags ?? []).map((tag) => {
+                              const pc = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                              return (
+                                <span key={tag} className={`post-pill modal-pill ${pc.cls} pill-selected`}>
+                                  {tag}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <span className="tags-trigger-arrow">{tagsOpen ? '▲' : '▼'}</span>
+                      </div>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <p className="tags-popover-header">Selecione as etiquetas</p>
+                      <div className="tags-popover-grid">
+                        {availableTags.map((tag) => {
+                          const pc    = PILLAR_COLORS[tag] ?? { cls: 'pill-especial' };
+                          const isSel = (form.tags ?? []).includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              className={`post-pill modal-pill ${pc.cls} ${isSel ? 'pill-selected' : 'pill-unselected'}`}
+                              onClick={() => toggleTag(tag)}
+                            >
+                              {isSel ? '✓ ' : ''}{tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Popover.Dropdown>
+                  </Popover>
                 )}
               </div>
             </>
           )}
 
-          {/* Descrição do Post / Legenda */}
+          {/* Descrição do Post / Legenda — Rich Text Editor */}
           <div className="popup-section">
-            <div className="popup-section-label">
-              Descrição do Post / Legenda
-              {!readOnly && !notesEditing && (
-                <button className="notes-edit-btn" onClick={openNotes}>✏️ Editar</button>
+            <div className="popup-section-label">Descrição do Post / Legenda</div>
+            <RichTextEditor editor={editor} className={`notes-rte${readOnly ? ' notes-rte-readonly' : ''}`}>
+              {!readOnly && (
+                <RichTextEditor.Toolbar sticky stickyOffset={0}>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Bold />
+                    <RichTextEditor.Italic />
+                    <RichTextEditor.Underline />
+                    <RichTextEditor.Strikethrough />
+                    <RichTextEditor.ClearFormatting />
+                  </RichTextEditor.ControlsGroup>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.BulletList />
+                    <RichTextEditor.OrderedList />
+                  </RichTextEditor.ControlsGroup>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Link />
+                    <RichTextEditor.Unlink />
+                  </RichTextEditor.ControlsGroup>
+                </RichTextEditor.Toolbar>
               )}
-            </div>
-            {!readOnly && notesEditing ? (
-              <textarea
-                className="form-textarea notes-textarea"
-                value={notesDraft}
-                onChange={(e) => setNotesDraft(e.target.value)}
-                onBlur={handleNotesBlur}
-                placeholder="Descreva o conteúdo, roteiro, referências..."
-                rows={4}
-                autoFocus
-              />
-            ) : (
-              <div className="popup-body notes-view">
-                {form.notes
-                  ? form.notes
-                  : <em style={{ color: '#9E9E9E' }}>
-                      {readOnly ? 'Sem descrição.' : 'Sem descrição. Clique em ✏️ Editar para adicionar.'}
-                    </em>
-                }
-              </div>
-            )}
+              <RichTextEditor.Content />
+            </RichTextEditor>
           </div>
 
-          {/* Anexos — só Social Media (cliente vê as imagens no carrossel à direita) */}
-          {!readOnly && (
-            <div className="popup-section">
-              <div className="popup-section-label">
-                Imagens
-                <button className="attach-btn" onClick={() => fileInputRef.current.click()}>
-                  + Adicionar imagem
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: 'none' }}
-                  onChange={handleFileAdd}
-                />
-              </div>
-              {!hasAttachments && (
-                <p className="popup-empty">
-                  Nenhuma imagem adicionada. Use o botão acima para adicionar.
-                </p>
-              )}
-              {hasAttachments && (
-                <p className="popup-empty" style={{ fontStyle: 'normal', color: 'var(--verde-escuro)' }}>
-                  {attachments.length} imagem(ns) — visualize e gerencie no painel ao lado.
-                </p>
-              )}
-            </div>
-          )}
+            {/* input de arquivo — oculto, acionado pelo botão no painel direito */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFileAdd}
+          />
         </div>
 
         {/* ── HISTÓRICO DE ALTERAÇÕES — somente Social Media ── */}
@@ -725,95 +826,131 @@ export default function PostModal({
         )}
 
         </div>{/* fim popup-main-left */}
+        </Splitter.Panel>
 
-        {/* ── CARROSSEL (painel direito) ── */}
-        {hasAttachments && (
-          <div className="popup-carousel-col">
+        {/* ── PAINEL DIREITO: Mídias ── */}
+        <Splitter.Panel defaultSize="45%" min="30%" className="popup-splitter-right">
+          <div className="carousel-panel">
 
-            {/* Imagem principal */}
-            <div className="carousel-main">
-              {activeAtt && (
-                <>
-                  <img
-                    src={activeAtt.url}
-                    alt={activeAtt.name}
-                    className="carousel-main-img"
-                    style={{ opacity: activeAtt.uploading ? 0.5 : 1 }}
-                  />
-                  {activeAtt.uploading && (
-                    <div className="att-status-overlay">
-                      <span className="att-spinner" /> Enviando…
-                    </div>
-                  )}
-                  {activeAtt.error && (
-                    <div className="att-status-overlay att-error-overlay">⚠ Falha no envio</div>
-                  )}
-                  {/* Setas de navegação */}
-                  {attachments.length > 1 && (
-                    <>
-                      <button
-                        className="carousel-arrow carousel-arrow-prev"
-                        onClick={() => setCarouselIdx((i) => (i === 0 ? attachments.length - 1 : i - 1))}
-                      >‹</button>
-                      <button
-                        className="carousel-arrow carousel-arrow-next"
-                        onClick={() => setCarouselIdx((i) => (i === attachments.length - 1 ? 0 : i + 1))}
-                      >›</button>
-                    </>
-                  )}
-                  {/* Ações Social Media sobre a imagem */}
-                  {!readOnly && (
+            {/* Cabeçalho do painel de mídias */}
+            <div className="carousel-panel-header">
+              <span className="carousel-panel-title">
+                🖼 Mídias{attachments.length > 0 ? ` (${attachments.length})` : ''}
+              </span>
+              {!readOnly && (
+                <button className="attach-btn" onClick={() => fileInputRef.current.click()}>
+                  + Adicionar
+                </button>
+              )}
+            </div>
+
+            {/* Estado vazio */}
+            {!hasAttachments && (
+              <div className="carousel-empty">
+                <div className="carousel-empty-icon">📷</div>
+                <p>{readOnly ? 'Nenhuma imagem adicionada.' : 'Nenhuma imagem ainda.'}</p>
+                {!readOnly && (
+                  <button className="attach-btn-lg" onClick={() => fileInputRef.current.click()}>
+                    + Adicionar imagem
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Carousel antd */}
+            {hasAttachments && (
+              <>
+                <div className="carousel-main-wrap">
+                  <Image.PreviewGroup>
+                    <ConfigProvider>
+                      <Carousel
+                        ref={carouselRef}
+                        afterChange={setCarouselIdx}
+                        arrows
+                        dots={false}
+                        infinite={attachments.length > 1}
+                        className="antd-carousel"
+                      >
+                        {attachments.map((att) => (
+                          <div key={att.id} className="carousel-slide-inner">
+                            <Image
+                              src={att.url}
+                              alt={att.name}
+                              className="carousel-main-img"
+                              style={{ opacity: att.uploading ? 0.5 : 1 }}
+                              preview={!att.uploading && !att.error}
+                              wrapperClassName="carousel-img-wrapper"
+                            />
+                            {att.uploading && (
+                              <div className="att-status-overlay">
+                                <span className="att-spinner" /> Enviando…
+                              </div>
+                            )}
+                            {att.error && (
+                              <div className="att-status-overlay att-error-overlay">⚠ Falha no envio</div>
+                            )}
+                          </div>
+                        ))}
+                      </Carousel>
+                    </ConfigProvider>
+                  </Image.PreviewGroup>
+
+                  {/* Ações sobre a imagem atual */}
+                  {!readOnly && activeAtt && (
                     <div className="carousel-main-actions">
                       <button
                         className={`carousel-cover-btn${activeAtt.id === form.coverId ? ' carousel-cover-btn-active' : ''}`}
                         onClick={() => !activeAtt.uploading && toggleCover(activeAtt.id)}
                         disabled={activeAtt.uploading}
                       >
-                        {activeAtt.id === form.coverId ? '🖼 Capa definida' : 'Definir como capa'}
+                        {activeAtt.id === form.coverId ? '🖼 Capa' : 'Definir capa'}
                       </button>
                       <button
                         className="carousel-remove-btn"
-                        onClick={() => { removeAttachment(activeAtt.id); setCarouselIdx(0); }}
+                        onClick={() => {
+                          removeAttachment(activeAtt.id);
+                          carouselRef.current?.goTo(0);
+                          setCarouselIdx(0);
+                        }}
                         disabled={activeAtt.uploading}
                       >× Remover</button>
                     </div>
                   )}
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Contador + nome */}
-            <div className="carousel-counter">
-              <span>{safeIdx + 1} / {attachments.length}</span>
-              {activeAtt && <span className="carousel-filename">{activeAtt.name}</span>}
-            </div>
+                {/* Contador + nome */}
+                <div className="carousel-counter">
+                  <span>{safeIdx + 1} / {attachments.length}</span>
+                  {activeAtt && <span className="carousel-filename">{activeAtt.name}</span>}
+                </div>
 
-            {/* Thumbnails */}
-            {attachments.length > 1 && (
-              <div className="carousel-thumbs">
-                {attachments.map((att, i) => (
-                  <button
-                    key={att.id}
-                    className={[
-                      'carousel-thumb',
-                      i === safeIdx            ? 'carousel-thumb-active'  : '',
-                      att.id === form.coverId  ? 'carousel-thumb-cover'   : '',
-                      att.uploading            ? 'carousel-thumb-loading' : '',
-                    ].join(' ').trim()}
-                    onClick={() => setCarouselIdx(i)}
-                    title={att.name}
-                  >
-                    <img src={att.url} alt={att.name} />
-                    {att.id === form.coverId && <span className="carousel-thumb-badge">Capa</span>}
-                  </button>
-                ))}
-              </div>
+                {/* Thumbnails */}
+                {attachments.length > 1 && (
+                  <div className="carousel-thumbs">
+                    {attachments.map((att, i) => (
+                      <button
+                        key={att.id}
+                        className={[
+                          'carousel-thumb',
+                          i === safeIdx           ? 'carousel-thumb-active'  : '',
+                          att.id === form.coverId ? 'carousel-thumb-cover'   : '',
+                          att.uploading           ? 'carousel-thumb-loading' : '',
+                        ].join(' ').trim()}
+                        onClick={() => { carouselRef.current?.goTo(i); setCarouselIdx(i); }}
+                        title={att.name}
+                      >
+                        <img src={att.url} alt={att.name} />
+                        {att.id === form.coverId && <span className="carousel-thumb-badge">Capa</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
           </div>
-        )}
-
-        </div>{/* fim popup-main-row */}
+        </Splitter.Panel>
+        </Splitter>{/* fim Splitter */}
 
         {/* ── RODAPÉ CLIENTE ── */}
         {readOnly && (
@@ -848,12 +985,12 @@ export default function PostModal({
             {reviewMode === 'rejeitado' && (
               <div className="review-footer-panel review-footer-rejeitar">
                 <p className="review-footer-panel-label">Motivo da rejeição:</p>
-                <textarea
-                  className="form-textarea review-textarea"
+                <Textarea
                   value={reviewDraft}
                   onChange={(e) => setReviewDraft(e.target.value)}
                   placeholder="Ex.: O texto não representa nossa marca..."
-                  rows={2}
+                  minRows={2}
+                  autosize
                   autoFocus
                 />
               </div>
@@ -863,19 +1000,27 @@ export default function PostModal({
             {reviewMode === 'ajustes' && (
               <div className="review-footer-panel review-footer-ajustes">
                 <p className="review-footer-panel-label">Descreva os ajustes ou considerações:</p>
-                <textarea
-                  className="form-textarea review-textarea"
+                <Textarea
                   value={reviewDraft}
                   onChange={(e) => setReviewDraft(e.target.value)}
                   placeholder="Ex.: Mudar a cor, alterar o texto do CTA..."
-                  rows={2}
+                  minRows={2}
+                  autosize
                   autoFocus
                 />
               </div>
             )}
 
-            {/* Botões principais */}
-            {!reviewSent && (
+            {/* Conteúdo ainda não enviado para aprovação */}
+            {!form.enviadoParaAprovacao && !form.clienteReview && !reviewSent && (
+              <div className="review-not-sent-msg">
+                <span className="review-not-sent-icon">🛠</span>
+                Esse conteúdo ainda está sendo produzido
+              </div>
+            )}
+
+            {/* Botões principais — só aparecem quando enviado para aprovação */}
+            {!reviewSent && (form.enviadoParaAprovacao || form.clienteReview) && (
               <div className="review-footer-btns">
                 {!reviewMode ? (
                   <>

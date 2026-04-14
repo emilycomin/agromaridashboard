@@ -10,8 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mantine/core": "^9.0.2",
+    "@mantine/dates": "^9.0.2",
+    "@mantine/hooks": "^9.0.2",
+    "@mantine/tiptap": "^9.0.2",
+    "@tiptap/extension-link": "^3.22.3",
+    "@tiptap/extension-underline": "^3.22.3",
+    "@tiptap/react": "^3.22.3",
+    "@tiptap/starter-kit": "^3.22.3",
+    "antd": "^6.3.5",
     "apexcharts": "^5.10.6",
     "chart.js": "^4.5.1",
+    "dayjs": "^1.11.20",
     "firebase": "^12.12.0",
     "react": "^19.2.4",
     "react-apexcharts": "^2.1.0",

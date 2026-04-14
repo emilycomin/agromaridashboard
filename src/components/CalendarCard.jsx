@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { MONTH_NAMES, DAY_NAMES, TODAY_STR, PILLAR_COLORS, formatIcon } from '../constants';
 
 export default function CalendarCard({ currentMonth, calendarDays, onMonthChange, onPostClick, onNewPost }) {
@@ -19,7 +20,6 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
               {name}
             </span>
           ))}
-          {/* Indicadores de estado do dia */}
           <span className="cal-legend-item">
             <span className="cal-legend-dot" style={{ background: '#E8F5E9', border: '2px solid #2D7D3A' }} />
             Hoje
@@ -27,6 +27,19 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
           <span className="cal-legend-item">
             <span className="cal-legend-dot" style={{ background: '#F0F0F0', border: '1px solid #E0E0E0' }} />
             Passado
+          </span>
+          {/* Legenda de status de aprovação */}
+          <span className="cal-legend-item">
+            <CheckCircleOutlined className="cal-legend-review-icon cal-review-aprovado" />
+            Aprovado
+          </span>
+          <span className="cal-legend-item">
+            <ExclamationCircleOutlined className="cal-legend-review-icon cal-review-ajustes" />
+            Ajustes
+          </span>
+          <span className="cal-legend-item">
+            <CloseCircleOutlined className="cal-legend-review-icon cal-review-rejeitado" />
+            Rejeitado
           </span>
         </div>
       </div>
@@ -50,10 +63,10 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
           ))}
 
           {calendarDays.map((day, idx) => {
-            const isToday          = day.dateStr === TODAY_STR;
-            const isPast           = !day.isOtherMonth && day.dateStr && day.dateStr < TODAY_STR;
-            const isClickable      = !day.isOtherMonth && day.dateStr;
-            const canCreatePost    = isClickable && !!onNewPost;
+            const isToday       = day.dateStr === TODAY_STR;
+            const isPast        = !day.isOtherMonth && day.dateStr && day.dateStr < TODAY_STR;
+            const isClickable   = !day.isOtherMonth && day.dateStr;
+            const canCreatePost = isClickable && !!onNewPost;
 
             return (
               <div
@@ -78,6 +91,13 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
                 {/* Posts do dia */}
                 {day.posts.map((post, pIdx) => {
                   const pc = PILLAR_COLORS[post.tags?.[0]] || PILLAR_COLORS['Especial'];
+
+                  // Imagem de capa: usa coverId ou primeira imagem disponível
+                  const coverAtt = post.coverId
+                    ? post.attachments?.find((a) => a.id === post.coverId)
+                    : post.attachments?.[0];
+                  const coverUrl = coverAtt?.url;
+
                   return (
                     <div
                       key={pIdx}
@@ -86,7 +106,33 @@ export default function CalendarCard({ currentMonth, calendarDays, onMonthChange
                       title={post.title}
                       onClick={(e) => { e.stopPropagation(); onPostClick(post); }}
                     >
-                      {formatIcon(post.format)} {post.title}
+                      {/* Miniatura da capa */}
+                      {coverUrl && (
+                        <img
+                          className="cal-pill-cover"
+                          src={coverUrl}
+                          alt=""
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      )}
+
+                      {/* Ícone de formato + título */}
+                      <span className="cal-pill-text">
+                        {formatIcon(post.format)} {post.title}
+                      </span>
+
+                      {/* Ícone de status de aprovação */}
+                      {post.clienteReview === 'aprovado' && (
+                        <CheckCircleOutlined className="cal-pill-review-icon cal-review-aprovado" title="Aprovado" />
+                      )}
+                      {post.clienteReview === 'ajustes' && (
+                        <ExclamationCircleOutlined className="cal-pill-review-icon cal-review-ajustes" title="Ajustes solicitados" />
+                      )}
+                      {post.clienteReview === 'rejeitado' && (
+                        <CloseCircleOutlined className="cal-pill-review-icon cal-review-rejeitado" title="Rejeitado" />
+                      )}
+
+                      {/* Ponto de notificação */}
                       {post.clienteNotification && (
                         <span
                           className="notif-dot"
