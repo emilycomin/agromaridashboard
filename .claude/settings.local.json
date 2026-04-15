@@ -5,7 +5,8 @@
       "Bash(dir \"C:\\\\Users\\\\Emily Comin\\\\Desktop\\\\Dashboard Agromari\\\\agromaridashboard\\\\src\" /b)",
       "Bash(npm i:*)",
       "Bash(npm install:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

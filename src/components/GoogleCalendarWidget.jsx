@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchUpcomingEvents, isConfigured, newEventUrl, formatEventTime } from '../services/googleCalendar';
+import { fetchUpcomingEvents, newEventUrl, formatEventTime } from '../services/googleCalendar';
 
 const DEMO_EVENTS = [
   {
@@ -32,23 +32,24 @@ const DEMO_EVENTS = [
   },
 ];
 
-export default function GoogleCalendarWidget() {
+export default function GoogleCalendarWidget({ googleAccessToken = null }) {
   const [events,    setEvents]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
   const [collapsed, setCollapsed] = useState(false);
-  const configured = isConfigured();
 
   useEffect(() => {
-    if (!configured) {
+    if (!googleAccessToken) {
       setEvents(DEMO_EVENTS);
       setLoading(false);
       return;
     }
-    fetchUpcomingEvents(8)
+    setLoading(true);
+    setError(null);
+    fetchUpcomingEvents(googleAccessToken, 8)
       .then((evs) => { setEvents(evs); setLoading(false); })
       .catch((err) => { setError(err.message); setLoading(false); });
-  }, []);
+  }, [googleAccessToken]);
 
   return (
     <div className={`card gcal-widget${collapsed ? ' gcal-widget-collapsed' : ''}`}>
@@ -57,7 +58,7 @@ export default function GoogleCalendarWidget() {
         <div className="gcal-title">
           <span className="gcal-icon">🗓</span>
           <h2>Agenda Google Calendar</h2>
-          {!configured && <span className="meetings-demo-badge">demonstração</span>}
+          {!googleAccessToken && <span className="meetings-demo-badge">demonstração</span>}
         </div>
         <div className="gcal-header-actions">
           <a
@@ -119,10 +120,9 @@ export default function GoogleCalendarWidget() {
             </div>
           )}
 
-          {!configured && (
+          {!googleAccessToken && (
             <div className="meetings-setup-tip">
-              💡 Configure <code>VITE_GCAL_API_KEY</code> e <code>VITE_GCAL_CALENDAR_ID</code> no
-              arquivo <code>.env.local</code> para ver sua agenda real.
+              💡 Faça login com Google para ver sua agenda real.
             </div>
           )}
         </div>

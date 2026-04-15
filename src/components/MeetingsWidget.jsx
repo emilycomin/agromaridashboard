@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { fetchUpcomingEvents, isConfigured, newEventUrl, formatEventTime } from '../services/googleCalendar';
+import { fetchUpcomingEvents, newEventUrl, formatEventTime } from '../services/googleCalendar';
 
-// Dados de exemplo exibidos quando a API não está configurada
+// Dados de exemplo exibidos quando não há token
 const DEMO_EVENTS = [
   {
     id: 'demo-1',
@@ -29,22 +29,23 @@ const DEMO_EVENTS = [
   },
 ];
 
-export default function MeetingsWidget() {
+export default function MeetingsWidget({ googleAccessToken = null }) {
   const [events,  setEvents]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
-  const configured = isConfigured();
 
   useEffect(() => {
-    if (!configured) {
+    if (!googleAccessToken) {
       setEvents(DEMO_EVENTS);
       setLoading(false);
       return;
     }
-    fetchUpcomingEvents(5)
+    setLoading(true);
+    setError(null);
+    fetchUpcomingEvents(googleAccessToken, 5)
       .then((evs) => { setEvents(evs); setLoading(false); })
       .catch((err) => { setError(err.message); setLoading(false); });
-  }, []);
+  }, [googleAccessToken]);
 
   return (
     <div className="card meetings-widget">
@@ -53,7 +54,7 @@ export default function MeetingsWidget() {
         <div className="meetings-title">
           <span className="meetings-icon">📅</span>
           <h2>Próximas Reuniões</h2>
-          {!configured && (
+          {!googleAccessToken && (
             <span className="meetings-demo-badge">demonstração</span>
           )}
         </div>
@@ -100,11 +101,10 @@ export default function MeetingsWidget() {
           </a>
         ))}
 
-        {/* Aviso de configuração */}
-        {!configured && (
+        {/* Aviso quando não há sessão Google */}
+        {!googleAccessToken && (
           <div className="meetings-setup-tip">
-            💡 Para ver suas reuniões reais, configure a Google Calendar API no
-            arquivo <code>.env.local</code>.
+            💡 Faça login como Social Media com sua conta Google para ver reuniões reais.
           </div>
         )}
       </div>

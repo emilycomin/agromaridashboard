@@ -1,32 +1,30 @@
 // ─── Google Calendar API Integration ─────────────────────────────────────────
-// Configuração: adicione as variáveis no arquivo .env.local na raiz do projeto:
-//   VITE_GCAL_API_KEY=sua_api_key
-//   VITE_GCAL_CALENDAR_ID=seu_email@gmail.com
-
-const API_KEY     = import.meta.env.VITE_GCAL_API_KEY     ?? '';
-const CALENDAR_ID = import.meta.env.VITE_GCAL_CALENDAR_ID ?? '';
-
-export const isConfigured = () => !!API_KEY && !!CALENDAR_ID;
+// Autenticação via OAuth 2.0 (token obtido no login com Google).
+// O token é passado como parâmetro — não é armazenado aqui.
 
 /**
- * Busca os próximos eventos do Google Calendar.
- * @param {number} maxResults - Número máximo de eventos (default 10)
- * @returns {Promise<Array>} Lista de eventos formatados
+ * Busca os próximos eventos do Google Calendar usando um token OAuth.
+ * @param {string} accessToken  - Token OAuth do usuário autenticado
+ * @param {number} maxResults   - Número máximo de eventos (default 10)
+ * @returns {Promise<Array>}
  */
-export async function fetchUpcomingEvents(maxResults = 10) {
-  if (!isConfigured()) return [];
+export async function fetchUpcomingEvents(accessToken, maxResults = 10) {
+  if (!accessToken) return [];
 
   const timeMin = new Date().toISOString();
   const url = new URL(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events'
   );
-  url.searchParams.set('key',          API_KEY);
   url.searchParams.set('timeMin',      timeMin);
   url.searchParams.set('maxResults',   String(maxResults));
   url.searchParams.set('singleEvents', 'true');
   url.searchParams.set('orderBy',      'startTime');
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 401) throw new Error('Token expirado. Faça login novamente.');
   if (!res.ok) throw new Error(`Google Calendar API error: ${res.status}`);
 
   const data = await res.json();

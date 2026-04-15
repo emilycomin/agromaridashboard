@@ -5,6 +5,14 @@ const ROLE_INFO = {
   'cliente':      { label: 'Cliente',       icon: '👁' },
 };
 
+function formatLastUpdated(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${date} às ${time}`;
+}
+
 export default function DashboardHeader({
   currentMonth,
   onMonthChange,
@@ -14,8 +22,10 @@ export default function DashboardHeader({
   clientName  = 'AGROMARI PETSHOP',
   clientHandle = '@agro.mari',
   clientEmoji  = '🐾',
+  lastUpdated  = null,
 }) {
   const role = ROLE_INFO[userRole];
+  const updatedLabel = formatLastUpdated(lastUpdated);
 
   return (
     <div className="header">
@@ -28,7 +38,12 @@ export default function DashboardHeader({
         <div className="logo-circle">{clientEmoji}</div>
         <div>
           <h1>{clientName}</h1>
-          <div className="header-sub">Dashboard de Conteúdo Instagram · {clientHandle}</div>
+          <div className="header-sub">
+            Dashboard de Conteúdo Instagram · {clientHandle}
+            {updatedLabel && (
+              <span className="header-last-updated"> · Última atualização: {updatedLabel}</span>
+            )}
+          </div>
         </div>
       </div>
       <div className="header-filters">

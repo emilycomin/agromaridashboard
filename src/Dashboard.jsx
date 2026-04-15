@@ -10,6 +10,8 @@ import PostsTable from './components/PostsTable';
 import PostModal from './components/PostModal';
 import MeetingsWidget from './components/MeetingsWidget';
 import GoogleCalendarWidget from './components/GoogleCalendarWidget';
+import CalendarTab from './components/CalendarTab';
+import { Tabs } from '@mantine/core';
 import './Dashboard.css';
 
 const NEW_POST_TEMPLATE = {
@@ -60,7 +62,7 @@ function buildHistoryEntry(oldPost, newPost) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────────────────
-export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, onLogout, onBack }) {
+export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, googleAccessToken = null, onLogout, onBack }) {
   const isCliente = userRole === 'cliente';
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -100,6 +102,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const [availableTags,     setAvailableTags]     = useState(() => Object.keys(PILLAR_COLORS));
   const [availableFormats,  setAvailableFormats]  = useState(FORMATS);
   const [availableStatuses, setAvailableStatuses] = useState(STATUSES);
+  const [lastUpdated,       setLastUpdated]       = useState(null);
 
   // Ref para saber se as configurações já foram carregadas do Firestore
   // (evita salvar os valores padrão por cima dos dados em nuvem no primeiro render)
@@ -119,6 +122,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         if (settings.availableTags?.length)     setAvailableTags(settings.availableTags);
         if (settings.availableFormats?.length)  setAvailableFormats(settings.availableFormats);
         if (settings.availableStatuses?.length) setAvailableStatuses(settings.availableStatuses);
+        if (settings.lastUpdated)               setLastUpdated(settings.lastUpdated);
       })
       .catch(console.error);
 
@@ -208,6 +212,12 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   };
 
   // ─── CRUD DE POSTS ───────────────────────────────────────────────────────────
+  const stampLastUpdated = () => {
+    const ts = new Date().toISOString();
+    setLastUpdated(ts);
+    persistSettings(clientId, { lastUpdated: ts }).catch(console.error);
+  };
+
   const handleSavePost = (updatedPost) => {
     if (updatedPost.id) {
       // Calcula toSave diretamente (não como side-effect do updater do setPosts,
@@ -223,6 +233,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
       setPosts((prev) => prev.map((p) => (p.id === toSave.id ? toSave : p)));
       setSelectedPost((prev) => (prev?.id === toSave.id ? toSave : prev));
       persistPost(clientId, toSave).catch(console.error);
+      stampLastUpdated();
     } else {
       // Criação: gera ID, semeia o Firestore e abre o modal no post criado
       const saved = { ...updatedPost, id: Date.now() };
@@ -230,6 +241,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
       setSelectedPost(saved);
       setSortConfig({ key: 'date', direction: 'asc' });
       persistPost(clientId, saved).catch(console.error);
+      stampLastUpdated();
     }
   };
 
@@ -237,6 +249,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
     setPosts((prev) => prev.filter((p) => p.id !== post.id));
     setSelectedPost(null);
     removePost(clientId, post.id).catch(console.error);
+    stampLastUpdated();
   };
 
   const openNewPost = (date = '') => setSelectedPost({ ...NEW_POST_TEMPLATE, date });
@@ -370,6 +383,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         clientName={clientMeta.name   ?? 'AGROMARI PETSHOP'}
         clientHandle={clientMeta.handle ?? '@agro.mari'}
         clientEmoji={clientMeta.emoji  ?? '🐾'}
+        lastUpdated={lastUpdated}
       />
 
       {dbError && (
@@ -411,49 +425,94 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
 
         <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
 
-        {/* Widget de reuniões — visível apenas no perfil Cliente, abaixo dos KPIs */}
-        {isCliente && <MeetingsWidget />}
+        {/* ── PERFIL CLIENTE: sem tabs ── */}
+        {isCliente && (
+          <>
+            <MeetingsWidget googleAccessToken={googleAccessToken} />
+            <CalendarCard
+              currentMonth={calendarMonth}
+              calendarDays={calendarDays}
+              onMonthChange={(m) => {
+                setCalendarMonth(m);
+                setSelectedMonths((prev) =>
+                  prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
+                );
+              }}
+              onPostClick={setSelectedPost}
+              onNewPost={null}
+            />
+            <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
+          </>
+        )}
 
-        <CalendarCard
-          currentMonth={calendarMonth}
-          calendarDays={calendarDays}
-          onMonthChange={(m) => {
-            setCalendarMonth(m);
-            setSelectedMonths((prev) =>
-              prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
-            );
-          }}
-          onPostClick={setSelectedPost}
-          onNewPost={isCliente ? null : (date) => openNewPost(date)}
-        />
-
-        <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
-
-        {/* Google Calendar Widget — visível apenas no perfil Social Media, acima da lista */}
-        {!isCliente && <GoogleCalendarWidget />}
-
+        {/* ── PERFIL SOCIAL MEDIA: com Tabs ── */}
         {!isCliente && (
-          <PostsTable
-            posts={filteredAndSortedPosts}
-            tableFilter={tableFilter}
-            onFilterChange={setTableFilter}
-            onSort={handleSort}
-            onPostClick={setSelectedPost}
-            onDeletePost={handleDeletePost}
-            onAddPost={openNewPost}
-            onBulkSendApproval={(ids) => {
-              setPosts((prev) =>
-                prev.map((p) => ids.includes(p.id)
-                  ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
-                  : p)
-              );
-              ids.forEach((id) => {
-                const p = posts.find((x) => x.id === id);
-                if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
-              });
-            }}
-            readOnly={false}
-          />
+          <Tabs defaultValue="conteudo" className="sm-tabs">
+            <Tabs.List className="sm-tabs-list">
+              <Tabs.Tab value="conteudo" className="sm-tabs-tab">
+                📋 Conteúdo
+              </Tabs.Tab>
+              <Tabs.Tab value="calendario" className="sm-tabs-tab">
+                🗓 Calendário
+              </Tabs.Tab>
+            </Tabs.List>
+
+            {/* ── Aba Conteúdo ── */}
+            <Tabs.Panel value="conteudo" className="sm-tabs-panel">
+              <GoogleCalendarWidget googleAccessToken={googleAccessToken} />
+              <CalendarCard
+                currentMonth={calendarMonth}
+                calendarDays={calendarDays}
+                onMonthChange={(m) => {
+                  setCalendarMonth(m);
+                  setSelectedMonths((prev) =>
+                    prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
+                  );
+                }}
+                onPostClick={setSelectedPost}
+                onNewPost={(date) => openNewPost(date)}
+              />
+              <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
+              <PostsTable
+                posts={filteredAndSortedPosts}
+                tableFilter={tableFilter}
+                onFilterChange={setTableFilter}
+                onSort={handleSort}
+                onPostClick={setSelectedPost}
+                onDeletePost={handleDeletePost}
+                onAddPost={openNewPost}
+                onBulkSendApproval={(ids) => {
+                  setPosts((prev) =>
+                    prev.map((p) => ids.includes(p.id)
+                      ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
+                      : p)
+                  );
+                  ids.forEach((id) => {
+                    const p = posts.find((x) => x.id === id);
+                    if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
+                  });
+                }}
+                readOnly={false}
+              />
+            </Tabs.Panel>
+
+            {/* ── Aba Calendário ── */}
+            <Tabs.Panel value="calendario" className="sm-tabs-panel">
+              <CalendarTab
+                posts={posts}
+                onPostClick={setSelectedPost}
+                onNewPost={(date) => openNewPost(date)}
+                currentMonth={calendarMonth}
+                googleAccessToken={googleAccessToken}
+                onMonthChange={(m) => {
+                  setCalendarMonth(m);
+                  setSelectedMonths((prev) =>
+                    prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
+                  );
+                }}
+              />
+            </Tabs.Panel>
+          </Tabs>
         )}
       </div>
 

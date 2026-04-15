@@ -4,11 +4,12 @@ import './index.css'
 import '@mantine/core/styles.css'
 import '@mantine/tiptap/styles.css'
 import { MantineProvider, createTheme } from '@mantine/core'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App.jsx'
 
 const theme = createTheme({
-  primaryColor: 'green',
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  primaryColor: 'violet',
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   components: {
     Select: {
       defaultProps: { checkIconPosition: 'right' },
@@ -21,8 +22,10 @@ const theme = createTheme({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <MantineProvider theme={theme}>
-      <App />
-    </MantineProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GCAL_CLIENT_ID ?? ''}>
+      <MantineProvider theme={theme}>
+        <App />
+      </MantineProvider>
+    </GoogleOAuthProvider>
   </StrictMode>,
 )
