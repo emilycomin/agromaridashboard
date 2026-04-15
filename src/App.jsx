@@ -1,15 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import LoginPage from './LoginPage';
 import WorkspacePage from './components/WorkspacePage';
+import { loadClients, lookupToken } from './services/db';
 
 export default function App() {
-  const [screen,            setScreen]            = useState('landing'); // 'landing' | 'login' | 'app'
-  const [userRole,          setUserRole]          = useState(null);
-  const [activeClient,      setActiveClient]      = useState(null);
-  const [googleAccessToken, setGoogleAccessToken] = useState(null);
+  const [resolving,          setResolving]          = useState(true);
+  const [screen,             setScreen]             = useState('landing');
+  const [userRole,           setUserRole]           = useState(null);
+  const [activeClient,       setActiveClient]       = useState(null);
+  const [googleAccessToken,  setGoogleAccessToken]  = useState(null);
+
+  // ── Resolve token na URL ao montar ──────────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (!token) {
+      setResolving(false);
+      return;
+    }
+
+    lookupToken(token)
+      .then(async (data) => {
+        if (!data) return;
+        const clients = await loadClients();
+        const client = clients.find((c) => c.id === data.clientId);
+        if (client) {
+          setUserRole('cliente');
+          setActiveClient(client);
+          setScreen('app');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setResolving(false));
+  }, []);
 
   const handleSelectRole = (role, token = null) => {
     setUserRole(role);
@@ -24,17 +51,38 @@ export default function App() {
     setScreen('landing');
   };
 
-  // 1) Landing page
+  // ── Aguardando resolução de token ────────────────────────────────────────────
+  if (resolving) {
+    return (
+      <>
+        <style>{`@keyframes app-spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: '100vh', fontFamily: 'Inter, sans-serif',
+          color: '#6C63FF', fontSize: '16px', gap: '12px',
+        }}>
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            border: '2px solid #EEF0FF', borderTopColor: '#6C63FF',
+            animation: 'app-spin 0.7s linear infinite',
+          }} />
+          Carregando…
+        </div>
+      </>
+    );
+  }
+
+  // ── Landing page ─────────────────────────────────────────────────────────────
   if (screen === 'landing') {
     return <LandingPage onLogin={() => setScreen('login')} />;
   }
 
-  // 2) Tela de login
+  // ── Tela de login ─────────────────────────────────────────────────────────────
   if (screen === 'login' && !userRole) {
     return <LoginPage onSelectRole={handleSelectRole} onBack={() => setScreen('landing')} />;
   }
 
-  // 2) Com perfil mas sem cliente → área de trabalho
+  // ── Área de trabalho (cliente não selecionado) ────────────────────────────────
   if (!activeClient) {
     return (
       <WorkspacePage
@@ -45,8 +93,7 @@ export default function App() {
     );
   }
 
-  // 3) Cliente selecionado → dashboard
-  // onBack só existe para Social Media — cliente vai direto ao dashboard sem retorno à workspace
+  // ── Dashboard ────────────────────────────────────────────────────────────────
   const isSM = userRole === 'social-media';
   return (
     <Dashboard

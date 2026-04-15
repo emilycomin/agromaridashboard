@@ -135,3 +135,29 @@ export async function loadSettings(clientId) {
 export async function persistSettings(clientId, settings) {
   await setDoc(settingsDoc(clientId), settings, { merge: true });
 }
+
+// ── TOKENS DE ACESSO ─────────────────────────────────────────────────────────
+
+const TOKENS_COL = 'tokens';
+
+/**
+ * Salva (cria ou sobrescreve) um token de acesso rápido para um cliente.
+ * @param {string} clientId
+ * @param {string} token  — string aleatória de 12 chars
+ */
+export async function createAccessToken(clientId, token) {
+  await setDoc(doc(db, TOKENS_COL, token), {
+    clientId,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Busca o clientId associado a um token.
+ * @param {string} token
+ * @returns {Promise<{ clientId: string, createdAt: string } | null>}
+ */
+export async function lookupToken(token) {
+  const snap = await getDoc(doc(db, TOKENS_COL, token));
+  return snap.exists() ? snap.data() : null;
+}

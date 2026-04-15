@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { loadClients, persistClient } from '../services/db';
+import { loadClients, persistClient, createAccessToken } from '../services/db';
 import './WorkspacePage.css';
 
 const PALETTE = [
@@ -26,12 +26,21 @@ const ROLE_INFO = {
 
 const EMPTY_FORM = { name: '', handle: '', emoji: '🏢', color: PALETTE[1], description: '' };
 
+function generateToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => chars[b % chars.length]).join('');
+}
+
 export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
+  const [clients,    setClients]    = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [showModal,  setShowModal]  = useState(false);
+  const [form,       setForm]       = useState(EMPTY_FORM);
+  const [saving,     setSaving]     = useState(false);
+  const [linkModal,  setLinkModal]  = useState(null);   // null | { client, token, url }
+  const [generating, setGenerating] = useState(false);
 
   const isSM = userRole === 'social-media';
   const role = ROLE_INFO[userRole];
@@ -41,10 +50,8 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
     loadClients()
       .then((cs) => {
         if (cs.length === 0) {
-          // Semeia o cliente padrão Agromari na primeira vez
           return persistClient(AGROMARI_DEFAULT).then(() => setClients([AGROMARI_DEFAULT]));
         }
-        // Ordena: Agromari primeiro, depois por ordem de criação
         const sorted = [...cs].sort((a, b) => {
           if (a.id === 'agromari') return -1;
           if (b.id === 'agromari') return 1;
@@ -80,6 +87,24 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
 
   const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); };
 
+  /* ── Gera link de acesso para cliente ── */
+  const handleGenerateLink = async (e, client) => {
+    e.stopPropagation();
+    setGenerating(true);
+    try {
+      const token = generateToken();
+      await createAccessToken(client.id, token);
+      const url = `${window.location.origin}/?token=${token}`;
+      setLinkModal({ client, token, url });
+    } catch (err) {
+      console.error('Erro ao gerar link:', err);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const closeLinkModal = () => setLinkModal(null);
+
   /* ── Render ── */
   return (
     <div className="ws-page">
@@ -95,7 +120,6 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
         </div>
         <div className="ws-header-right">
           {role && <div className="role-badge">{role.icon} {role.label}</div>}
-          <button className="logout-btn" onClick={onLogout}>↩ Trocar perfil</button>
         </div>
       </div>
 
@@ -125,10 +149,13 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
         ) : (
           <div className="ws-grid">
             {clients.map((c) => (
-              <button
+              <div
                 key={c.id}
                 className="ws-card"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectClient(c)}
+                onKeyDown={(e) => e.key === 'Enter' && onSelectClient(c)}
                 style={{ '--accent': c.color }}
               >
                 <div className="ws-card-accent" style={{ background: c.color }} />
@@ -145,7 +172,19 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
                 <div className="ws-card-footer" style={{ color: c.color }}>
                   Acessar painel →
                 </div>
-              </button>
+                {isSM && (
+                  <div className="ws-card-link-row">
+                    <button
+                      className="ws-link-btn"
+                      onClick={(e) => handleGenerateLink(e, c)}
+                      disabled={generating}
+                      title="Gerar link de acesso para este cliente"
+                    >
+                      🔗 Link do Cliente
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
 
             {isSM && (
@@ -273,6 +312,68 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Link do Cliente ── */}
+      {linkModal && (
+        <div className="ws-modal-backdrop" onClick={closeLinkModal}>
+          <div className="ws-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ws-modal-header">
+              <h3>🔗 Link de Acesso — {linkModal.client.name}</h3>
+              <button className="ws-modal-close" onClick={closeLinkModal}>✕</button>
+            </div>
+            <div className="ws-link-modal-body">
+              <div className="ws-link-section">
+                <div className="ws-link-label">Link completo</div>
+                <div className="ws-link-url-row">
+                  <input
+                    className="ws-link-url-input"
+                    type="text"
+                    readOnly
+                    value={linkModal.url}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button
+                    className="ws-link-copy-btn"
+                    onClick={() => navigator.clipboard.writeText(linkModal.url)}
+                  >
+                    📋 Copiar Link
+                  </button>
+                </div>
+              </div>
+
+              <div className="ws-link-section">
+                <div className="ws-link-label">Senha (token)</div>
+                <div className="ws-link-token-row">
+                  <code className="ws-link-token">{linkModal.token}</code>
+                  <button
+                    className="ws-link-copy-btn ws-link-copy-btn--ghost"
+                    onClick={() => navigator.clipboard.writeText(linkModal.token)}
+                  >
+                    📋 Copiar Senha
+                  </button>
+                </div>
+                <p className="ws-link-hint">
+                  Compartilhe a senha separadamente caso o cliente precise acessar manualmente.
+                </p>
+              </div>
+
+              <div className="ws-modal-actions">
+                <button className="ws-btn-cancel" onClick={closeLinkModal}>
+                  Fechar
+                </button>
+                <button
+                  className="ws-btn-submit"
+                  style={{ background: '#6C63FF' }}
+                  onClick={(e) => handleGenerateLink(e, linkModal.client)}
+                  disabled={generating}
+                >
+                  {generating ? 'Gerando…' : '🔄 Gerar novo link'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

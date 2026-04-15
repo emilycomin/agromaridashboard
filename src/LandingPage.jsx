@@ -22,9 +22,9 @@ export default function LandingPage({ onLogin }) {
       <div className="lp-hero-wrap">
         <div className="lp-hero">
           <div>
-            <div className="lp-hero-badge">Plataforma para agências de marketing</div>
-            <h1>Sua agência no controle.<br/><span>Seus clientes</span> impressionados.</h1>
-            <p className="lp-hero-sub">Crie, agende, analise e gerencie tudo em um só lugar — do post do Instagram ao relatório mensal do cliente.</p>
+            <div className="lp-hero-badge">Plataforma para sociais mídias & agências de marketing</div>
+            <h1>Sua agência no controle.<br/>Tudo em <span>um só</span> lugar.</h1>
+            <p className="lp-hero-sub">Crie, agende, analise e gerencie equipes e tarefas de forma centralizada — da estratégia inicial ao relatório mensal do cliente.</p>
             <form className="lp-hero-form" onSubmit={(e) => e.preventDefault()}>
               <input type="email" placeholder="Seu melhor e-mail"/>
               <button className="lp-btn-primary" onClick={onLogin}>Começar de graça →</button>
@@ -124,8 +124,8 @@ export default function LandingPage({ onLogin }) {
           </div>
         </div>
       </div>
-
-      {/* BRAND STRIP */}
+{/*
+  
       <div className="lp-brand-strip">
         <p>Confiado por agências que crescem de verdade</p>
         <div className="lp-brand-logos">
@@ -136,6 +136,7 @@ export default function LandingPage({ onLogin }) {
           <span className="lp-brand-logo">BrandHouse</span>
         </div>
       </div>
+*/}
 
       {/* PILARES */}
       <div className="lp-section-wrap" id="funcionalidades">

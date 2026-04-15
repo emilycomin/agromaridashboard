@@ -109,7 +109,7 @@
 
 .lp-hero-badge {
   display: inline-flex;
-  align-items: center;
+  align-items: right;
   gap: 8px;
   background: var(--primary-light);
   color: var(--primary);

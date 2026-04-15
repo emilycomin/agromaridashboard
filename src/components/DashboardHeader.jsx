@@ -17,7 +17,6 @@ export default function DashboardHeader({
   currentMonth,
   onMonthChange,
   userRole,
-  onLogout,
   onBack,
   clientName  = 'AGROMARI PETSHOP',
   clientHandle = '@agro.mari',
@@ -60,11 +59,6 @@ export default function DashboardHeader({
             ))}
           </select>
         </div>
-        {onLogout && (
-          <button className="logout-btn" onClick={onLogout} title="Trocar perfil">
-            ↩ Trocar perfil
-          </button>
-        )}
       </div>
     </div>
   );
