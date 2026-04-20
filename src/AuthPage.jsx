@@ -117,12 +117,8 @@ export default function AuthPage({ onSelectRole, onBack, resetOobCode = null, on
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const actionCodeSettings = {
-      url: window.location.origin,
-      handleCodeInApp: true,
-    };
     try {
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      await sendPasswordResetEmail(auth, email);
       setSuccessMsg('Link enviado! Verifique sua caixa de entrada.');
     } catch (err) {
       setError(translateError(err.code));
