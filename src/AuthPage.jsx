@@ -5,6 +5,8 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
   updateProfile,
 } from 'firebase/auth';
 import { auth } from './firebase';
@@ -26,8 +28,8 @@ function translateError(code) {
   return FIREBASE_ERRORS[code] || 'Ocorreu um erro. Tente novamente.';
 }
 
-export default function AuthPage({ onSelectRole, onBack }) {
-  const [view,            setView]            = useState('login');   // 'login' | 'register' | 'forgot'
+export default function AuthPage({ onSelectRole, onBack, resetOobCode = null, onResetDone }) {
+  const [view,            setView]            = useState(resetOobCode ? 'reset' : 'login');   // 'login' | 'register' | 'forgot' | 'reset'
   const [loginMethod,     setLoginMethod]     = useState('password'); // 'password' | 'emaillink'
   const [name,            setName]            = useState('');
   const [email,           setEmail]           = useState('');
@@ -115,8 +117,12 @@ export default function AuthPage({ onSelectRole, onBack }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    const actionCodeSettings = {
+      url: window.location.origin,
+      handleCodeInApp: true,
+    };
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
       setSuccessMsg('Link enviado! Verifique sua caixa de entrada.');
     } catch (err) {
       setError(translateError(err.code));
@@ -140,6 +146,30 @@ export default function AuthPage({ onSelectRole, onBack }) {
       setSuccessMsg(`Link enviado para ${email}. Verifique sua caixa de entrada e clique no link para entrar.`);
     } catch (err) {
       setError(translateError(err.code));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Confirmar nova senha (link do e-mail de recuperação) ─────────────────────
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await verifyPasswordResetCode(auth, resetOobCode);
+      await confirmPasswordReset(auth, resetOobCode, password);
+      setSuccessMsg('Senha alterada com sucesso! Faça login para continuar.');
+      onResetDone?.();
+    } catch (err) {
+      const expired = err.code === 'auth/expired-action-code' || err.code === 'auth/invalid-action-code';
+      setError(expired
+        ? 'Este link expirou ou já foi usado. Solicite um novo link de recuperação.'
+        : translateError(err.code));
     } finally {
       setLoading(false);
     }
@@ -439,6 +469,105 @@ export default function AuthPage({ onSelectRole, onBack }) {
                   <button type="submit" className="auth-btn-primary" disabled={loading}>
                     {loading ? <><span className="auth-spinner" />Enviando…</> : 'Enviar link de recuperação'}
                   </button>
+                </form>
+              )}
+            </>
+          )}
+
+          {/* ──────────── REDEFINIR SENHA ──────────── */}
+          {view === 'reset' && (
+            <>
+              <div className="auth-reset-icon-wrap">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+
+              <h1 className="auth-title">Criar nova senha</h1>
+              <p className="auth-sub">Escolha uma senha segura para a sua conta</p>
+
+              {successMsg ? (
+                <div className="auth-success-box">
+                  <div className="auth-success-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#43C59E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <p className="auth-success-title">Senha alterada!</p>
+                  <p className="auth-success-sub">{successMsg}</p>
+                  <button
+                    type="button"
+                    className="auth-btn-primary"
+                    style={{ marginTop: 20 }}
+                    onClick={() => { resetForm(); setView('login'); }}
+                  >
+                    Fazer login
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-google-btn"
+                    style={{ marginTop: 12 }}
+                    disabled={loading}
+                    onClick={() => { setError(null); setLoading(true); loginWithGoogle(); }}
+                  >
+                    <GoogleIcon />
+                    Entrar com Google
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleResetPassword} noValidate>
+                  {inputField({
+                    label: 'Nova senha',
+                    type: showPassword ? 'text' : 'password',
+                    value: password,
+                    onChange: setPassword,
+                    placeholder: 'Mínimo 6 caracteres',
+                    autoComplete: 'new-password',
+                    rightEl: eyeToggle,
+                  })}
+                  {inputField({
+                    label: 'Confirmar nova senha',
+                    type: showPassword ? 'text' : 'password',
+                    value: confirmPassword,
+                    onChange: setConfirmPassword,
+                    placeholder: '••••••••',
+                    autoComplete: 'new-password',
+                  })}
+
+                  <div className="auth-password-rules">
+                    <span className={password.length >= 6 ? 'rule ok' : 'rule'}>
+                      {password.length >= 6 ? '✓' : '○'} Mínimo 6 caracteres
+                    </span>
+                    <span className={password.length > 0 && password === confirmPassword ? 'rule ok' : 'rule'}>
+                      {password.length > 0 && password === confirmPassword ? '✓' : '○'} Senhas coincidem
+                    </span>
+                  </div>
+
+                  {error && <div className="auth-error">{error}</div>}
+
+                  <button type="submit" className="auth-btn-primary" disabled={loading}>
+                    {loading ? <><span className="auth-spinner" />Salvando…</> : 'Salvar nova senha'}
+                  </button>
+
+                  <div className="auth-divider"><span>ou</span></div>
+
+                  <button
+                    type="button"
+                    className="auth-google-btn"
+                    disabled={loading}
+                    onClick={() => { setError(null); setLoading(true); loginWithGoogle(); }}
+                  >
+                    <GoogleIcon />
+                    Entrar com Google
+                  </button>
+
+                  <p className="auth-switch">
+                    Lembrou a senha?{' '}
+                    <button type="button" className="auth-link auth-link-bold" onClick={() => { resetForm(); setView('login'); }}>
+                      Voltar para o login
+                    </button>
+                  </p>
                 </form>
               )}
             </>

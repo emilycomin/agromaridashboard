@@ -14,13 +14,23 @@ export default function App() {
   const [userRole,           setUserRole]           = useState(null);
   const [activeClient,       setActiveClient]       = useState(null);
   const [googleAccessToken,  setGoogleAccessToken]  = useState(null);
+  const [resetOobCode,       setResetOobCode]       = useState(null);
 
   // ── Resolve token na URL ao montar ──────────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
-    // 1. Conclusão de sign-in por link de e-mail
+    // 1. Redefinição de senha via link do Firebase
+    if (params.get('mode') === 'resetPassword' && params.get('oobCode')) {
+      setResetOobCode(params.get('oobCode'));
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setScreen('login');
+      setResolving(false);
+      return;
+    }
+
+    // 2. Conclusão de sign-in por link de e-mail
     if (isSignInWithEmailLink(auth, window.location.href)) {
       let emailForSignIn = localStorage.getItem('emailForSignIn');
       if (!emailForSignIn) {
@@ -104,7 +114,14 @@ export default function App() {
 
   // ── Tela de autenticação ──────────────────────────────────────────────────────
   if (screen === 'login' && !userRole) {
-    return <AuthPage onSelectRole={handleSelectRole} onBack={() => setScreen('landing')} />;
+    return (
+      <AuthPage
+        onSelectRole={handleSelectRole}
+        onBack={() => setScreen('landing')}
+        resetOobCode={resetOobCode}
+        onResetDone={() => setResetOobCode(null)}
+      />
+    );
   }
 
   // ── Área de trabalho (cliente não selecionado) ────────────────────────────────

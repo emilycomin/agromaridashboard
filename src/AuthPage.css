@@ -430,6 +430,40 @@
 }
 .auth-back-landing:hover { color: var(--primary); }
 
+/* ── Ícone topo da tela de reset ─────────────────────────────────────────────── */
+.auth-reset-icon-wrap {
+  width: 60px;
+  height: 60px;
+  background: var(--primary-light);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+/* ── Regras de senha ─────────────────────────────────────────────────────────── */
+.auth-password-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 16px;
+}
+
+.auth-password-rules .rule {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s;
+}
+
+.auth-password-rules .rule.ok {
+  color: #43C59E;
+  font-weight: 600;
+}
+
 /* ── Toggle método de login (senha / link) ───────────────────────────────────── */
 .auth-method-toggle {
   display: flex;
