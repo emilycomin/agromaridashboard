@@ -11,6 +11,8 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 import { PILLAR_COLORS } from '../constants';
 import { uploadAttachment, deleteAttachment } from '../services/storage';
+import { useOptions } from '../context/OptionsContext';
+import { usePosts } from '../context/PostsContext';
 
 dayjs.locale('pt-br');
 
@@ -103,17 +105,21 @@ function ManageGroup({ items, onAdd, onDelete, onRename, colorMap }) {
 }
 
 // ─── PostModal ────────────────────────────────────────────────────────────────
-export default function PostModal({
-  post, onSave, onDelete, onClose,
-  availableTags, onAddTag, onDeleteTag, onRenameTag,
-  availableFormats, onAddFormat, onDeleteFormat, onRenameFormat,
-  availableStatuses, onAddStatus, onDeleteStatus, onRenameStatus,
-  readOnly = false,
-  isInApprovalMode = false,
-  approvalIdx = 0,
-  approvalTotal = 0,
-  onReviewNext,
-}) {
+export default function PostModal({ post, onClose, readOnly = false }) {
+  const {
+    availableTags, addTag: onAddTag, deleteTag: onDeleteTag, renameTag: onRenameTag,
+    availableFormats, addFormat: onAddFormat, deleteFormat: onDeleteFormat, renameFormat: onRenameFormat,
+    availableStatuses, addStatus: onAddStatus, deleteStatus: onDeleteStatus, renameStatus: onRenameStatus,
+  } = useOptions();
+
+  const {
+    handleSavePost: onSave,
+    handleDeletePost: onDelete,
+    isInApprovalMode = false,
+    approvalIdx = 0,
+    approvalTotal = 0,
+    advanceApprovalQueue: onReviewNext,
+  } = usePosts();
   const isNew = post?.id === null;
 
   const [form, setForm] = useState(() => post ?? {});

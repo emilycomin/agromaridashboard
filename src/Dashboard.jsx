@@ -12,6 +12,8 @@ import MeetingsWidget from './components/MeetingsWidget';
 import GoogleCalendarWidget from './components/GoogleCalendarWidget';
 import CalendarTab from './components/CalendarTab';
 import { Tabs } from '@mantine/core';
+import { OptionsContext } from './context/OptionsContext';
+import { PostsContext } from './context/PostsContext';
 import './Dashboard.css';
 
 const NEW_POST_TEMPLATE = {
@@ -372,7 +374,25 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   }
 
   // ─── RENDER ──────────────────────────────────────────────────────────────────
+  const optionsValue = {
+    availableTags, addTag, deleteTag, renameTag,
+    availableFormats, addFormat, deleteFormat, renameFormat,
+    availableStatuses, addStatus, deleteStatus, renameStatus,
+  };
+
+  const postsValue = {
+    posts,
+    selectedPost, setSelectedPost,
+    handleSavePost, handleDeletePost, openNewPost,
+    isInApprovalMode,
+    approvalIdx,
+    approvalTotal: approvalQueue?.length ?? 0,
+    advanceApprovalQueue,
+  };
+
   return (
+    <OptionsContext.Provider value={optionsValue}>
+    <PostsContext.Provider value={postsValue}>
     <>
       <DashboardHeader
         currentMonth={calendarMonth}
@@ -522,31 +542,15 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         <PostModal
           key={selectedPost.id ?? `new-${selectedPost.date}`}
           post={selectedPost}
-          onSave={handleSavePost}
-          onDelete={handleDeletePost}
           onClose={() => {
             setSelectedPost(null);
             if (isInApprovalMode) { setApprovalQueue(null); setApprovalIdx(0); }
           }}
-          availableTags={availableTags}
-          onAddTag={addTag}
-          onDeleteTag={deleteTag}
-          onRenameTag={renameTag}
-          availableFormats={availableFormats}
-          onAddFormat={addFormat}
-          onDeleteFormat={deleteFormat}
-          onRenameFormat={renameFormat}
-          availableStatuses={availableStatuses}
-          onAddStatus={addStatus}
-          onDeleteStatus={deleteStatus}
-          onRenameStatus={renameStatus}
           readOnly={isCliente}
-          isInApprovalMode={isInApprovalMode}
-          approvalIdx={approvalIdx}
-          approvalTotal={approvalQueue?.length ?? 0}
-          onReviewNext={advanceApprovalQueue}
         />
       )}
     </>
+    </PostsContext.Provider>
+    </OptionsContext.Provider>
   );
 }
