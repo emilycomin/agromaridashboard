@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
-import LoginPage from './LoginPage';
+import AuthPage from './AuthPage';
 import WorkspacePage from './components/WorkspacePage';
 import { loadClients, lookupToken } from './services/db';
+import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { auth } from './firebase';
 
 export default function App() {
   const [resolving,          setResolving]          = useState(true);
@@ -18,6 +20,29 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
+    // 1. Conclusão de sign-in por link de e-mail
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let emailForSignIn = localStorage.getItem('emailForSignIn');
+      if (!emailForSignIn) {
+        emailForSignIn = window.prompt('Informe seu e-mail para concluir o acesso:');
+      }
+      if (emailForSignIn) {
+        signInWithEmailLink(auth, emailForSignIn, window.location.href)
+          .then(() => {
+            localStorage.removeItem('emailForSignIn');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setUserRole('social-media');
+            setScreen('app');
+          })
+          .catch(() => {})
+          .finally(() => setResolving(false));
+      } else {
+        setResolving(false);
+      }
+      return;
+    }
+
+    // 2. Acesso por token de cliente (link compartilhado)
     if (!token) {
       setResolving(false);
       return;
@@ -77,9 +102,9 @@ export default function App() {
     return <LandingPage onLogin={() => setScreen('login')} />;
   }
 
-  // ── Tela de login ─────────────────────────────────────────────────────────────
+  // ── Tela de autenticação ──────────────────────────────────────────────────────
   if (screen === 'login' && !userRole) {
-    return <LoginPage onSelectRole={handleSelectRole} onBack={() => setScreen('landing')} />;
+    return <AuthPage onSelectRole={handleSelectRole} onBack={() => setScreen('landing')} />;
   }
 
   // ── Área de trabalho (cliente não selecionado) ────────────────────────────────
