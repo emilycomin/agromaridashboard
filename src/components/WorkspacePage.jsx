@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { loadClients, persistClient, createAccessToken } from '../services/db';
+import AppHeader from './AppHeader';
 import './WorkspacePage.css';
 
 const PALETTE = [
@@ -33,17 +34,18 @@ function generateToken() {
   return Array.from(arr, (b) => chars[b % chars.length]).join('');
 }
 
-export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
+export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, onLogout }) {
   const [clients,    setClients]    = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showModal,  setShowModal]  = useState(false);
   const [form,       setForm]       = useState(EMPTY_FORM);
   const [saving,     setSaving]     = useState(false);
-  const [linkModal,  setLinkModal]  = useState(null);   // null | { client, token, url }
+  const [linkModal,  setLinkModal]  = useState(null);
   const [generating, setGenerating] = useState(false);
 
   const isSM = userRole === 'social-media';
   const role = ROLE_INFO[userRole];
+
 
   /* ── Carrega clientes do Firestore ── */
   useEffect(() => {
@@ -109,19 +111,15 @@ export default function WorkspacePage({ userRole, onSelectClient, onLogout }) {
   return (
     <div className="ws-page">
 
-      {/* ── Header ── */}
-      <div className="ws-header">
-        <div className="ws-header-left">
-          <div className="ws-logo">🐾</div>
-          <div>
-            <div className="ws-header-title">Área de Trabalho</div>
-            <div className="ws-header-sub">Agromari Social Media Dashboard</div>
-          </div>
-        </div>
-        <div className="ws-header-right">
-          {role && <div className="role-badge">{role.icon} {role.label}</div>}
-        </div>
-      </div>
+      <AppHeader
+        title="Área de trabalho"
+        subtitle="Agromari Social Media Dashboard"
+        firebaseUser={firebaseUser}
+        onLogout={onLogout}
+        clients={clients}
+        onSelectClient={onSelectClient}
+        userRole={userRole}
+      />
 
       {/* ── Corpo ── */}
       <div className="ws-body">

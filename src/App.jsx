@@ -4,8 +4,8 @@ import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import WorkspacePage from './components/WorkspacePage';
-import { loadClients, lookupToken } from './services/db';
-import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { loadClients, lookupToken, persistClient } from './services/db';
+import { isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 
 export default function App() {
@@ -15,6 +15,29 @@ export default function App() {
   const [activeClient,       setActiveClient]       = useState(null);
   const [googleAccessToken,  setGoogleAccessToken]  = useState(null);
   const [resetOobCode,       setResetOobCode]       = useState(null);
+  const [firebaseUser,       setFirebaseUser]       = useState(null);
+  const [clients,            setClients]            = useState([]);
+
+  // ── Mantém firebaseUser sincronizado e carrega clientes ao autenticar ────────
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        loadClients()
+          .then((cs) => {
+            if (cs.length === 0) {
+              const def = { id: 'agromari', name: 'AGROMARI PETSHOP', handle: '@agro.mari', emoji: '🐾', color: '#2E7D32', description: 'Petshop e grooming', createdAt: new Date().toISOString() };
+              return persistClient(def).then(() => setClients([def]));
+            }
+            setClients([...cs].sort((a, b) => a.id === 'agromari' ? -1 : b.id === 'agromari' ? 1 : new Date(a.createdAt ?? 0) - new Date(b.createdAt ?? 0)));
+          })
+          .catch(console.error);
+      } else {
+        setClients([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // ── Resolve token na URL ao montar ──────────────────────────────────────────
   useEffect(() => {
@@ -52,25 +75,33 @@ export default function App() {
       return;
     }
 
-    // 2. Acesso por token de cliente (link compartilhado)
-    if (!token) {
-      setResolving(false);
+    // 3. Acesso por token de cliente (link compartilhado)
+    if (token) {
+      lookupToken(token)
+        .then(async (data) => {
+          if (!data) return;
+          const clients = await loadClients();
+          const client = clients.find((c) => c.id === data.clientId);
+          if (client) {
+            setUserRole('cliente');
+            setActiveClient(client);
+            setScreen('app');
+          }
+        })
+        .catch(() => {})
+        .finally(() => setResolving(false));
       return;
     }
 
-    lookupToken(token)
-      .then(async (data) => {
-        if (!data) return;
-        const clients = await loadClients();
-        const client = clients.find((c) => c.id === data.clientId);
-        if (client) {
-          setUserRole('cliente');
-          setActiveClient(client);
-          setScreen('app');
-        }
-      })
-      .catch(() => {})
-      .finally(() => setResolving(false));
+    // 4. Sem parâmetros de URL — verifica sessão Firebase existente
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      if (user) {
+        setUserRole('social-media');
+        setScreen('app');
+      }
+      setResolving(false);
+    });
   }, []);
 
   const handleSelectRole = (role, token = null) => {
@@ -80,6 +111,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    signOut(auth).catch(console.error);
     setUserRole(null);
     setActiveClient(null);
     setGoogleAccessToken(null);
@@ -129,6 +161,7 @@ export default function App() {
     return (
       <WorkspacePage
         userRole={userRole}
+        firebaseUser={firebaseUser}
         onSelectClient={setActiveClient}
         onLogout={handleLogout}
       />
@@ -143,6 +176,9 @@ export default function App() {
       clientId={activeClient.id}
       clientMeta={activeClient}
       googleAccessToken={googleAccessToken}
+      firebaseUser={firebaseUser}
+      clients={clients}
+      onSelectClient={setActiveClient}
       onLogout={handleLogout}
       onBack={isSM ? () => setActiveClient(null) : undefined}
     />

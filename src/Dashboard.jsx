@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_POSTS, CURRENT_YEAR, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
 import { subscribePosts, persistPost, removePost, loadSettings, persistSettings } from './services/db';
-import DashboardHeader from './components/DashboardHeader';
+import AppHeader from './components/AppHeader';
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
 import CalendarCard from './components/CalendarCard';
@@ -64,7 +64,7 @@ function buildHistoryEntry(oldPost, newPost) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────────────────
-export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, googleAccessToken = null, onLogout, onBack }) {
+export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, googleAccessToken = null, firebaseUser = null, clients = [], onSelectClient, onLogout, onBack }) {
   const isCliente = userRole === 'cliente';
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -390,20 +390,22 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
     advanceApprovalQueue,
   };
 
+  const clientTitle = `${clientMeta.emoji ?? '🐾'} ${clientMeta.name ?? 'AGROMARI PETSHOP'}`;
+  const clientSubtitle = clientMeta.handle ?? '@agro.mari';
+
   return (
     <OptionsContext.Provider value={optionsValue}>
     <PostsContext.Provider value={postsValue}>
     <>
-      <DashboardHeader
-        currentMonth={calendarMonth}
-        onMonthChange={setCalendarMonth}
-        userRole={userRole}
+      <AppHeader
+        title={clientTitle}
+        subtitle={clientSubtitle}
+        firebaseUser={firebaseUser}
         onLogout={onLogout}
+        clients={clients}
+        onSelectClient={onSelectClient}
         onBack={onBack}
-        clientName={clientMeta.name   ?? 'AGROMARI PETSHOP'}
-        clientHandle={clientMeta.handle ?? '@agro.mari'}
-        clientEmoji={clientMeta.emoji  ?? '🐾'}
-        lastUpdated={lastUpdated}
+        userRole={userRole}
       />
 
       {dbError && (
