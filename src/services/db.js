@@ -1,12 +1,13 @@
 /**
  * Camada de acesso ao Firestore.
- * Todas as funções recebem `clientId` como primeiro argumento.
  *
  * Estrutura do banco:
- *   Agromari (legado)  → posts/{id}  |  settings/options
- *   Novos clientes     → clients/{clientId}/posts/{id}
- *                        clients/{clientId}/settings/options
- *   Metadados          → clients/{clientId}  (documento raiz)
+ *   clients/{clientId}            → metadados (campo ownerUid identifica o dono)
+ *   clients/{clientId}/posts/{id} → posts do cliente
+ *   clients/{clientId}/settings/options → configurações
+ *   posts/{id}                    → posts legados do Agromari (emilycominn@gmail.com)
+ *   settings/options              → configurações legadas do Agromari
+ *   tokens/{token}                → tokens de acesso de clientes
  */
 
 import { db } from '../firebase';
@@ -20,10 +21,15 @@ import {
   onSnapshot,
   query,
   orderBy,
+  where,
 } from 'firebase/firestore';
 
 const AGROMARI_ID  = 'agromari';
 const CLIENTS_COL  = 'clients';
+const TOKENS_COL   = 'tokens';
+
+// E-mail da proprietária dos dados legados (sem ownerUid nos documentos)
+const LEGACY_OWNER_EMAIL = 'emilycominn@gmail.com';
 
 // ── Helpers de path ──────────────────────────────────────────────────────────
 
@@ -41,28 +47,76 @@ function settingsDoc(clientId) {
 
 // ── CLIENTES ─────────────────────────────────────────────────────────────────
 
-/**
- * Carrega todos os clientes cadastrados.
- * @returns {Promise<Array>}
- */
-export async function loadClients() {
-  const snap = await getDocs(collection(db, CLIENTS_COL));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((c) => c.name); // apenas documentos com metadados completos
+function sortClients(clients) {
+  return [...clients].sort((a, b) => {
+    if (a.id === AGROMARI_ID) return -1;
+    if (b.id === AGROMARI_ID) return 1;
+    return new Date(a.createdAt ?? 0) - new Date(b.createdAt ?? 0);
+  });
 }
 
 /**
- * Salva (cria ou atualiza) metadados de um cliente.
- * @param {Object} client
+ * Carrega os clientes do usuário atual.
+ * - Filtra por ownerUid === uid.
+ * - Se o usuário for o dono legado (sem ownerUid nos docs), migra automaticamente.
+ *
+ * @param {string} uid    - Firebase Auth uid do usuário
+ * @param {string} email  - E-mail do usuário (para detectar dono legado)
+ * @returns {Promise<Array>}
  */
-export async function persistClient(client) {
-  await setDoc(doc(db, CLIENTS_COL, String(client.id)), client);
+export async function loadClients(uid, email) {
+  // 1. Busca clientes já marcados com ownerUid do usuário
+  const ownedSnap = await getDocs(
+    query(collection(db, CLIENTS_COL), where('ownerUid', '==', uid))
+  );
+  const owned = ownedSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((c) => c.name);
+
+  if (owned.length > 0) return sortClients(owned);
+
+  // 2. Migração: se for o dono legado, marca todos os docs sem ownerUid
+  if (email === LEGACY_OWNER_EMAIL) {
+    const allSnap = await getDocs(collection(db, CLIENTS_COL));
+    const legacy = allSnap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((c) => c.name && !c.ownerUid);
+
+    if (legacy.length > 0) {
+      await Promise.all(
+        legacy.map((c) =>
+          setDoc(doc(db, CLIENTS_COL, c.id), { ownerUid: uid }, { merge: true })
+        )
+      );
+      return sortClients(legacy.map((c) => ({ ...c, ownerUid: uid })));
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Carrega um único cliente pelo id (sem verificação de dono — usado por tokens).
+ * @param {string} clientId
+ * @returns {Promise<Object|null>}
+ */
+export async function getClientById(clientId) {
+  const snap = await getDoc(doc(db, CLIENTS_COL, clientId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/**
+ * Salva (cria ou atualiza) metadados de um cliente, sempre marcando o dono.
+ * @param {Object} client
+ * @param {string} uid - ownerUid do usuário logado
+ */
+export async function persistClient(client, uid) {
+  const data = uid ? { ...client, ownerUid: uid } : client;
+  await setDoc(doc(db, CLIENTS_COL, String(client.id)), data);
 }
 
 /**
  * Remove o documento de metadados de um cliente.
- * (posts/settings em sub-coleções são separados)
  * @param {string} clientId
  */
 export async function removeClient(clientId) {
@@ -71,13 +125,6 @@ export async function removeClient(clientId) {
 
 // ── POSTS ────────────────────────────────────────────────────────────────────
 
-/**
- * Assina atualizações em tempo real da coleção de posts do cliente.
- * @param {string}                   clientId
- * @param {(posts: Array) => void}   onUpdate
- * @param {(err: Error) => void}     onError
- * @returns {() => void} unsubscribe
- */
 export function subscribePosts(clientId, onUpdate, onError) {
   const q = query(postsCol(clientId), orderBy('date', 'asc'));
   return onSnapshot(
@@ -87,11 +134,6 @@ export function subscribePosts(clientId, onUpdate, onError) {
   );
 }
 
-/**
- * Salva (cria ou atualiza) um post no Firestore.
- * @param {string} clientId
- * @param {Object} post
- */
 export async function persistPost(clientId, post) {
   const { attachments, ...data } = post;
 
@@ -106,56 +148,41 @@ export async function persistPost(clientId, post) {
   });
 }
 
-/**
- * Remove um post do Firestore.
- * @param {string}        clientId
- * @param {number|string} postId
- */
 export async function removePost(clientId, postId) {
   await deleteDoc(doc(postsCol(clientId), String(postId)));
 }
 
 // ── CONFIGURAÇÕES ────────────────────────────────────────────────────────────
 
-/**
- * Carrega as configurações do cliente.
- * @param {string} clientId
- * @returns {Promise<Object|null>}
- */
 export async function loadSettings(clientId) {
   const snap = await getDoc(settingsDoc(clientId));
   return snap.exists() ? snap.data() : null;
 }
 
-/**
- * Salva as configurações do cliente.
- * @param {string} clientId
- * @param {{ availableTags, availableFormats, availableStatuses }} settings
- */
 export async function persistSettings(clientId, settings) {
   await setDoc(settingsDoc(clientId), settings, { merge: true });
 }
 
 // ── TOKENS DE ACESSO ─────────────────────────────────────────────────────────
 
-const TOKENS_COL = 'tokens';
-
 /**
- * Salva (cria ou sobrescreve) um token de acesso rápido para um cliente.
+ * Salva um token de acesso rápido para um cliente, registrando o dono.
  * @param {string} clientId
- * @param {string} token  — string aleatória de 12 chars
+ * @param {string} token
+ * @param {string} ownerUid - uid do usuário social-media que gerou o token
  */
-export async function createAccessToken(clientId, token) {
+export async function createAccessToken(clientId, token, ownerUid) {
   await setDoc(doc(db, TOKENS_COL, token), {
     clientId,
+    ownerUid: ownerUid ?? null,
     createdAt: new Date().toISOString(),
   });
 }
 
 /**
- * Busca o clientId associado a um token.
+ * Busca os dados associados a um token.
  * @param {string} token
- * @returns {Promise<{ clientId: string, createdAt: string } | null>}
+ * @returns {Promise<{ clientId: string, ownerUid: string|null, createdAt: string } | null>}
  */
 export async function lookupToken(token) {
   const snap = await getDoc(doc(db, TOKENS_COL, token));

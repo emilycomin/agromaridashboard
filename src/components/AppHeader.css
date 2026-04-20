@@ -199,10 +199,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.app-user-role {
+.app-role-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 2px 8px 2px 7px;
   font-size: 11px;
-  color: rgba(255,255,255,0.45);
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.6;
+}
+.app-role-btn:hover {
+  background: rgba(108,99,255,0.25);
+  border-color: rgba(108,99,255,0.5);
+  color: #fff;
 }
 
 /* ── Responsive ── */

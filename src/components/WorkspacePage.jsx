@@ -10,16 +10,6 @@ const PALETTE = [
 
 const EMOJI_SUGGESTIONS = ['🏢','💄','🏠','🍕','🐾','💪','📸','👗','🌿','🎨','🚗','💅'];
 
-const AGROMARI_DEFAULT = {
-  id: 'agromari',
-  name: 'AGROMARI PETSHOP',
-  handle: '@agro.mari',
-  emoji: '🐾',
-  color: '#2E7D32',
-  description: 'Petshop e grooming',
-  createdAt: new Date().toISOString(),
-};
-
 const ROLE_INFO = {
   'social-media': { label: 'Social Media', icon: '✏️' },
   'cliente':      { label: 'Cliente',       icon: '👁' },
@@ -34,7 +24,7 @@ function generateToken() {
   return Array.from(arr, (b) => chars[b % chars.length]).join('');
 }
 
-export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, onLogout }) {
+export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, onLogout, onSwitchAccount }) {
   const [clients,    setClients]    = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showModal,  setShowModal]  = useState(false);
@@ -47,23 +37,17 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
   const role = ROLE_INFO[userRole];
 
 
+  const uid   = firebaseUser?.uid;
+  const email = firebaseUser?.email;
+
   /* ── Carrega clientes do Firestore ── */
   useEffect(() => {
-    loadClients()
-      .then((cs) => {
-        if (cs.length === 0) {
-          return persistClient(AGROMARI_DEFAULT).then(() => setClients([AGROMARI_DEFAULT]));
-        }
-        const sorted = [...cs].sort((a, b) => {
-          if (a.id === 'agromari') return -1;
-          if (b.id === 'agromari') return 1;
-          return new Date(a.createdAt ?? 0) - new Date(b.createdAt ?? 0);
-        });
-        setClients(sorted);
-      })
-      .catch(() => setClients([AGROMARI_DEFAULT]))
+    if (!uid) return;
+    loadClients(uid, email)
+      .then(setClients)
+      .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [uid, email]);
 
   /* ── Adiciona novo cliente ── */
   const handleAdd = async (e) => {
@@ -80,7 +64,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
       description: form.description.trim(),
       createdAt: new Date().toISOString(),
     };
-    await persistClient(newClient).catch(console.error);
+    await persistClient(newClient, uid).catch(console.error);
     setClients((prev) => [...prev, newClient]);
     setShowModal(false);
     setSaving(false);
@@ -95,7 +79,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
     setGenerating(true);
     try {
       const token = generateToken();
-      await createAccessToken(client.id, token);
+      await createAccessToken(client.id, token, uid);
       const url = `${window.location.origin}/?token=${token}`;
       setLinkModal({ client, token, url });
     } catch (err) {
@@ -116,6 +100,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
         subtitle="Agromari Social Media Dashboard"
         firebaseUser={firebaseUser}
         onLogout={onLogout}
+        onSwitchAccount={onSwitchAccount}
         clients={clients}
         onSelectClient={onSelectClient}
         userRole={userRole}

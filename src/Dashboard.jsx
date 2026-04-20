@@ -64,7 +64,7 @@ function buildHistoryEntry(oldPost, newPost) {
 }
 
 // ─── DASHBOARD ─────────────────────────────────────────────────────────────────
-export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, googleAccessToken = null, firebaseUser = null, clients = [], onSelectClient, onLogout, onBack }) {
+export default function Dashboard({ userRole = 'social-media', clientId = 'agromari', clientMeta = {}, googleAccessToken = null, firebaseUser = null, clients = [], onSelectClient, onLogout, onSwitchAccount, onBack }) {
   const isCliente = userRole === 'cliente';
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -402,6 +402,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         subtitle={clientSubtitle}
         firebaseUser={firebaseUser}
         onLogout={onLogout}
+        onSwitchAccount={onSwitchAccount}
         clients={clients}
         onSelectClient={onSelectClient}
         onBack={onBack}

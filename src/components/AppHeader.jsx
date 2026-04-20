@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { TextInput } from '@mantine/core';
+import { TextInput, Menu } from '@mantine/core';
 import UserMenu from './UserMenu';
 import './AppHeader.css';
 
@@ -13,6 +13,7 @@ export default function AppHeader({
   subtitle,
   firebaseUser,
   onLogout,
+  onSwitchAccount,
   clients = [],
   onSelectClient,
   onBack,
@@ -140,9 +141,33 @@ export default function AppHeader({
             <div className="app-user-name">
               {firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário'}
             </div>
-            <div className="app-user-role">
-              {role ? `${role.icon} ${role.label}` : 'Perfil do Usuário'}
-            </div>
+
+            <Menu shadow="md" width={210} position="bottom-end">
+              <Menu.Target>
+                <button className="app-role-btn">
+                  {role ? `${role.icon} ${role.label}` : 'Perfil do Usuário'}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>Conta</Menu.Label>
+                <Menu.Item
+                  leftSection={<span>🔄</span>}
+                  onClick={onSwitchAccount}
+                >
+                  Trocar de conta
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<span>🔑</span>}
+                  onClick={onSwitchAccount}
+                >
+                  Fazer novo login
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </div>
         )}
         {firebaseUser && <UserMenu user={firebaseUser} onLogout={onLogout} />}

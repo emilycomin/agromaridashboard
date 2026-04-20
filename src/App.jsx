@@ -4,7 +4,7 @@ import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import WorkspacePage from './components/WorkspacePage';
-import { loadClients, lookupToken, persistClient } from './services/db';
+import { loadClients, lookupToken, getClientById } from './services/db';
 import { isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 
@@ -23,14 +23,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (user) {
-        loadClients()
-          .then((cs) => {
-            if (cs.length === 0) {
-              const def = { id: 'agromari', name: 'AGROMARI PETSHOP', handle: '@agro.mari', emoji: '🐾', color: '#2E7D32', description: 'Petshop e grooming', createdAt: new Date().toISOString() };
-              return persistClient(def).then(() => setClients([def]));
-            }
-            setClients([...cs].sort((a, b) => a.id === 'agromari' ? -1 : b.id === 'agromari' ? 1 : new Date(a.createdAt ?? 0) - new Date(b.createdAt ?? 0)));
-          })
+        loadClients(user.uid, user.email)
+          .then(setClients)
           .catch(console.error);
       } else {
         setClients([]);
@@ -80,8 +74,7 @@ export default function App() {
       lookupToken(token)
         .then(async (data) => {
           if (!data) return;
-          const clients = await loadClients();
-          const client = clients.find((c) => c.id === data.clientId);
+          const client = await getClientById(data.clientId);
           if (client) {
             setUserRole('cliente');
             setActiveClient(client);
@@ -116,6 +109,14 @@ export default function App() {
     setActiveClient(null);
     setGoogleAccessToken(null);
     setScreen('landing');
+  };
+
+  const handleSwitchAccount = () => {
+    signOut(auth).catch(console.error);
+    setUserRole(null);
+    setActiveClient(null);
+    setGoogleAccessToken(null);
+    setScreen('login');
   };
 
   // ── Aguardando resolução de token ────────────────────────────────────────────
@@ -164,6 +165,7 @@ export default function App() {
         firebaseUser={firebaseUser}
         onSelectClient={setActiveClient}
         onLogout={handleLogout}
+        onSwitchAccount={handleSwitchAccount}
       />
     );
   }
@@ -180,6 +182,7 @@ export default function App() {
       clients={clients}
       onSelectClient={setActiveClient}
       onLogout={handleLogout}
+      onSwitchAccount={handleSwitchAccount}
       onBack={isSM ? () => setActiveClient(null) : undefined}
     />
   );
