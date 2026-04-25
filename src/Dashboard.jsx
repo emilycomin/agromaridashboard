@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_POSTS, CURRENT_YEAR, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
-import { subscribePosts, persistPost, removePost, loadSettings, persistSettings } from './services/db';
+import { subscribePosts, persistPost, removePost, loadSettings, persistSettings, getOrCreateClientToken, persistClient } from './services/db';
 import AppHeader from './components/AppHeader';
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
@@ -11,7 +11,7 @@ import PostModal from './components/PostModal';
 import MeetingsWidget from './components/MeetingsWidget';
 import GoogleCalendarWidget from './components/GoogleCalendarWidget';
 import CalendarTab from './components/CalendarTab';
-import { Tabs } from '@mantine/core';
+import { Tabs, NavLink } from '@mantine/core';
 import { OptionsContext } from './context/OptionsContext';
 import { PostsContext } from './context/PostsContext';
 import './Dashboard.css';
@@ -74,6 +74,8 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const [tableFilter, setTableFilter]   = useState('all');
   const [sortConfig, setSortConfig]     = useState({ key: 'date', direction: 'asc' });
   const [selectedPost, setSelectedPost] = useState(null);
+  const [whatsappModal, setWhatsappModal] = useState(null);
+  const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
 
   // ─── SINCRONIZA selectedPost com o listener em tempo real ───────────────────
   // Quando o Firestore atualiza os posts (ex: cliente aprova/rejeita), o modal do
@@ -388,6 +390,8 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
     approvalIdx,
     approvalTotal: approvalQueue?.length ?? 0,
     advanceApprovalQueue,
+    clientMeta,
+    ownerUid: firebaseUser?.uid ?? null,
   };
 
   const clientTitle = `${clientMeta.emoji ?? '🐾'} ${clientMeta.name ?? 'AGROMARI PETSHOP'}`;
@@ -396,7 +400,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   return (
     <OptionsContext.Provider value={optionsValue}>
     <PostsContext.Provider value={postsValue}>
-    <>
+    <div style={{ display: 'flex', height: '100vh', width: '100%', flexDirection: 'column', overflow: 'hidden' }}>
       <AppHeader
         title={clientTitle}
         subtitle={clientSubtitle}
@@ -408,14 +412,65 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         onBack={onBack}
         userRole={userRole}
       />
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {!isCliente && (
+          <aside style={{ width: 260, backgroundColor: '#FFFFFF', borderRight: '1px solid #E9ECEF', overflowY: 'auto', flexShrink: 0, padding: '12px 8px' }}>
+            <NavLink
+              label="Dashboard"
+              active={activeMenuTab === 'dashboard'}
+              color="violet"
+              variant="light"
+              onClick={() => setActiveMenuTab('dashboard')}
+              styles={{ label: { fontWeight: 600, fontSize: 14 } }}
+            />
+            <NavLink
+              label="Cliente"
+              defaultOpened
+              childrenOffset={28}
+              styles={{ label: { fontWeight: 600, fontSize: 14 } }}
+            >
+              <NavLink
+                label="Configurações"
+                active={activeMenuTab === 'alterar-info'}
+                color="violet"
+                variant="light"
+                onClick={() => setActiveMenuTab('alterar-info')}
+              />
+              <NavLink
+                label="Notificações pelo WhatsApp"
+                active={activeMenuTab === 'whatsapp-notif'}
+                color="violet"
+                variant="light"
+                onClick={() => setActiveMenuTab('whatsapp-notif')}
+              />
+            </NavLink>
+          </aside>
+        )}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        {dbError && (
+          <div className="db-error-banner">
+            ⚠️ {dbError}
+          </div>
+        )}
 
-      {dbError && (
-        <div className="db-error-banner">
-          ⚠️ {dbError}
-        </div>
-      )}
+        {!isCliente && activeMenuTab === 'alterar-info' && (
+          <div className="dashboard-menu-panel">
+            <h3>Configurações do cliente</h3>
+            <p>Edite os dados do cliente ativos no painel.</p>
+            <MenuAlterarInfo client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
+          </div>
+        )}
 
-      <div className="main">
+        {!isCliente && activeMenuTab === 'whatsapp-notif' && (
+          <div className="dashboard-menu-panel">
+            <h3>Notificação pelo WhatsApp</h3>
+            <p>Envie uma mensagem ao cliente com o link de acesso ao painel.</p>
+            <MenuWhatsAppNotif client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
+          </div>
+        )}
+
+        {(isCliente || activeMenuTab === 'dashboard') && (
+        <div className="main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* ── BARRA DE APROVAÇÃO (somente cliente) ── */}
         {isCliente && (
           <div className={`approval-banner ${postsParaAprovar.length === 0 ? 'approval-banner-done' : ''}`}>
@@ -504,7 +559,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                 onPostClick={setSelectedPost}
                 onDeletePost={handleDeletePost}
                 onAddPost={openNewPost}
-                onBulkSendApproval={(ids) => {
+                onBulkSendApproval={async (ids) => {
                   setPosts((prev) =>
                     prev.map((p) => ids.includes(p.id)
                       ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
@@ -514,6 +569,12 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                     const p = posts.find((x) => x.id === id);
                     if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
                   });
+                  if (clientMeta?.phone) {
+                    const token = await getOrCreateClientToken(clientId, firebaseUser?.uid);
+                    const approvalUrl = `${window.location.origin}/?token=${token}`;
+                    const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                    setWhatsappModal({ url: `https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}` });
+                  }
                 }}
                 readOnly={false}
               />
@@ -538,6 +599,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
           </Tabs>
         )}
       </div>
+        )}
 
       {/* Renderiza somente quando há post selecionado — garante remontagem limpa
           a cada abertura e que a data pré-preenchida seja sempre aplicada        */}
@@ -552,8 +614,174 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
           readOnly={isCliente}
         />
       )}
-    </>
+      {whatsappModal && (
+        <div className="confirm-overlay" onClick={() => setWhatsappModal(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">💬</div>
+            <h3 className="confirm-title">Notificar cliente?</h3>
+            <p className="confirm-msg">Posts enviados para aprovação. Deseja avisar o cliente pelo WhatsApp?</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setWhatsappModal(null)}>Fechar</button>
+              <a
+                className="confirm-btn-delete"
+                style={{ background: '#25D366', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                href={whatsappModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setWhatsappModal(null)}
+              >
+                💬 Abrir WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+        </div>
+      </div>
+    </div>
     </PostsContext.Provider>
     </OptionsContext.Provider>
+  );
+}
+
+// ─── Menu: Alterar Informações ──────────────────────────────────────────────
+const PALETTE = ['#2E7D32', '#1565C0', '#E65100', '#6A1B9A', '#C2185B', '#00838F', '#F57F17', '#4E342E'];
+const EMOJI_SUGGESTIONS = ['🏢','💄','🏠','🍕','🐾','💪','📸','👗','🌿','🎨','🚗','💅'];
+
+function MenuAlterarInfo({ client, uid, onUpdate }) {
+  const [form, setForm] = useState({ name: client?.name ?? '', handle: client?.handle ?? '', description: client?.description ?? '', phone: client?.phone ?? '', emoji: client?.emoji ?? '🏢', color: client?.color ?? PALETTE[1] });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    const updated = { ...client, name: form.name.trim().toUpperCase(), handle: form.handle.trim(), description: form.description.trim(), phone: form.phone.trim(), emoji: form.emoji.trim() || '🏢', color: form.color };
+    await persistClient(updated, uid).catch(console.error);
+    onUpdate(updated);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  return (
+    <form onSubmit={handleSave} className="dashboard-menu-form">
+      <div className="dashboard-form-row">
+        <label className="dashboard-field">
+          <span>Nome *</span>
+          <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+        </label>
+        <label className="dashboard-field">
+          <span>Perfil Instagram</span>
+          <input type="text" placeholder="@perfil" value={form.handle} onChange={(e) => setForm((f) => ({ ...f, handle: e.target.value }))} />
+        </label>
+      </div>
+      <label className="dashboard-field">
+        <span>Descrição</span>
+        <input type="text" placeholder="Ex: Moda feminina, e-commerce" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+      </label>
+      <label className="dashboard-field">
+        <span>WhatsApp <span style={{ fontWeight: 400, fontSize: 11, color: '#999' }}>(opcional)</span></span>
+        <input type="tel" placeholder="5511999999999" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+      </label>
+      <div className="dashboard-form-row">
+        <label className="dashboard-field" style={{ flex: '0 0 auto' }}>
+          <span>Ícone</span>
+          <input type="text" value={form.emoji} maxLength={4} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))} style={{ width: 64, textAlign: 'center', fontSize: 22 }} />
+        </label>
+        <div className="dashboard-field" style={{ flex: 1 }}>
+          <span>Sugestões</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            {EMOJI_SUGGESTIONS.map((em) => (
+              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#6C63FF' : '#E0E0EE'}`, borderRadius: 8, background: form.emoji === em ? '#EEF0FF' : '#FAFAFE', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
+                {em}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="dashboard-field">
+        <span>Cor</span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+          {PALETTE.map((c) => (
+            <button key={c} type="button" style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: form.color === c ? `3px solid ${c}` : '3px solid transparent', cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, color: c }))} />
+          ))}
+        </div>
+      </div>
+      <button type="submit" style={{ background: form.color, color: '#fff', padding: '10px 28px', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8, opacity: saving || !form.name.trim() ? 0.5 : 1 }} disabled={saving || !form.name.trim()}>
+        {saving ? 'Salvando…' : saved ? '✓ Salvo!' : 'Salvar alterações'}
+      </button>
+    </form>
+  );
+}
+
+function MenuWhatsAppNotif({ client, uid, onUpdate }) {
+  const [phone, setPhone] = useState(client?.phone ?? '');
+  const [editPhone, setEditPhone] = useState(!client?.phone);
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no Flowly. Acesse seu painel para revisar.`;
+
+  const handleSavePhone = async () => {
+    if (!phone.trim()) return;
+    setSavingPhone(true);
+    const updated = { ...client, phone: phone.trim() };
+    await persistClient(updated, uid).catch(console.error);
+    onUpdate(updated);
+    setSavingPhone(false);
+    setEditPhone(false);
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!phone.trim()) return;
+    setSending(true);
+    const token = await getOrCreateClientToken(client.id, uid);
+    const approvalUrl = `${window.location.origin}/?token=${token}`;
+    const text = `${approvalText} Acesse: ${approvalUrl}`;
+    setSending(false);
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+    window.open(`https://wa.me/${phone.trim()}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="dashboard-menu-whatsapp">
+      <div style={{ background: '#F9F9FC', border: '1.5px solid #E0E0EE', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#3A3A5A', marginBottom: 8 }}>Número do cliente</div>
+        {editPhone ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #E0E0EE', borderRadius: 8, fontSize: 14, fontFamily: "'Inter', sans-serif" }} />
+            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#6C63FF', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
+              {savingPhone ? 'Salvando…' : 'Salvar'}
+            </button>
+            {client?.phone && (
+              <button onClick={() => { setPhone(client.phone); setEditPhone(false); }} style={{ padding: '8px 14px', background: 'none', border: '1.5px solid #E0E0EE', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#2D2D3F' }}>+{phone}</span>
+            <button onClick={() => setEditPhone(true)} style={{ padding: '5px 12px', background: 'none', border: '1.5px solid #E0E0EE', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+              ✏️ Editar
+            </button>
+          </div>
+        )}
+      </div>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#3A3A5A', marginBottom: 8 }}>Preview da mensagem</div>
+        <div style={{ background: '#E8FFE8', border: '1.5px solid #C8F0C8', borderRadius: '12px 12px 12px 4px', padding: '14px 18px', fontSize: 14, color: '#1A3A1A', lineHeight: 1.5, maxWidth: 420 }}>
+          <span>{approvalText}</span> <span style={{ color: '#1565C0', fontStyle: 'italic' }}>[link do painel]</span>
+        </div>
+      </div>
+      <button onClick={handleSendWhatsApp} disabled={!phone.trim() || sending || editPhone} style={{ padding: '12px 28px', background: '#25D366', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif", opacity: !phone.trim() || sending || editPhone ? 0.5 : 1 }}>
+        {sending ? 'Abrindo…' : sent ? '✓ WhatsApp aberto!' : '💬 Enviar pelo WhatsApp'}
+      </button>
+      {!phone.trim() && !editPhone && <p style={{ marginTop: 12, fontSize: 13, color: '#E65100' }}>Nenhum número cadastrado. Adicione o número acima.</p>}
+    </div>
   );
 }

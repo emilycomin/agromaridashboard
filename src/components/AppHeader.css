@@ -186,6 +186,27 @@
   flex-shrink: 0;
 }
 
+.app-central-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(108, 99, 255, 0.18);
+  border: 1px solid rgba(108, 99, 255, 0.35);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.app-central-btn:hover {
+  background: rgba(108, 99, 255, 0.32);
+  border-color: rgba(108, 99, 255, 0.6);
+}
+
 .app-user-info {
   text-align: right;
   line-height: 1.3;

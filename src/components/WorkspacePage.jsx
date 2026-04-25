@@ -15,7 +15,7 @@ const ROLE_INFO = {
   'cliente':      { label: 'Cliente',       icon: '👁' },
 };
 
-const EMPTY_FORM = { name: '', handle: '', emoji: '🏢', color: PALETTE[1], description: '' };
+const EMPTY_FORM = { name: '', handle: '', emoji: '🏢', color: PALETTE[1], description: '', phone: '' };
 
 function generateToken() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -62,6 +62,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
       emoji: form.emoji?.trim() || '🏢',
       color: form.color,
       description: form.description.trim(),
+      phone: form.phone.trim() || '',
       createdAt: new Date().toISOString(),
     };
     await persistClient(newClient, uid).catch(console.error);
@@ -219,6 +220,16 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
                   placeholder="Ex: Moda feminina, e-commerce"
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                />
+              </label>
+
+              <label className="ws-field">
+                <span>WhatsApp <span style={{ fontWeight: 400, color: '#9E9E9E', fontSize: 12 }}>(opcional)</span></span>
+                <input
+                  type="tel"
+                  placeholder="Ex: 5511999999999 (com DDI, sem + ou espaços)"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 />
               </label>
 

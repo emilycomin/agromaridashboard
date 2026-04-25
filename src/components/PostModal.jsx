@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 import { PILLAR_COLORS } from '../constants';
 import { uploadAttachment, deleteAttachment } from '../services/storage';
+import { getOrCreateClientToken } from '../services/db';
 import { useOptions } from '../context/OptionsContext';
 import { usePosts } from '../context/PostsContext';
 
@@ -119,6 +120,8 @@ export default function PostModal({ post, onClose, readOnly = false }) {
     approvalIdx = 0,
     approvalTotal = 0,
     advanceApprovalQueue: onReviewNext,
+    clientMeta = {},
+    ownerUid = null,
   } = usePosts();
   const isNew = post?.id === null;
 
@@ -147,6 +150,7 @@ export default function PostModal({ post, onClose, readOnly = false }) {
   const [tagsOpen, setTagsOpen] = useState(false);
 
   const [showHistory, setShowHistory] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState(null);
 
   const [errors, setErrors] = useState({});
   const fileInputRef  = useRef(null);
@@ -501,11 +505,32 @@ export default function PostModal({ post, onClose, readOnly = false }) {
                 {!form.clienteReview && !form.enviadoParaAprovacao && (
                   <button
                     className="btn-send-approval"
-                    onClick={() => saveFields({ enviadoParaAprovacao: true, status: 'Aguardando Aprovação' })}
+                    onClick={async () => {
+                      saveFields({ enviadoParaAprovacao: true, status: 'Aguardando Aprovação' });
+                      if (clientMeta?.phone) {
+                        const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
+                        const approvalUrl = `${window.location.origin}/?token=${token}`;
+                        const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                        setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
+                      }
+                    }}
                     title="Enviar este post para o cliente aprovar"
                   >
                     📤 Mandar para aprovação
                   </button>
+                )}
+                {whatsappUrl && (
+                  <a
+                    className="btn-send-approval"
+                    style={{ background: '#25D366', color: '#fff', textDecoration: 'none',
+                             display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6 }}
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setWhatsappUrl(null)}
+                  >
+                    💬 Notificar via WhatsApp
+                  </a>
                 )}
               </div>
             </div>

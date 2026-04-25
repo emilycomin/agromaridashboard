@@ -4,6 +4,7 @@ import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import WorkspacePage from './components/WorkspacePage';
+import CentralPage from './components/CentralPage';
 import { loadClients, lookupToken, getClientById } from './services/db';
 import { isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
@@ -170,6 +171,22 @@ export default function App() {
     );
   }
 
+  // ── Central ──────────────────────────────────────────────────────────────────
+  if (screen === 'central') {
+    return (
+      <CentralPage
+        firebaseUser={firebaseUser}
+        activeClient={activeClient}
+        clients={clients}
+        onSelectClient={setActiveClient}
+        onClientUpdate={setActiveClient}
+        onLogout={handleLogout}
+        onSwitchAccount={handleSwitchAccount}
+        onBack={() => setScreen('app')}
+      />
+    );
+  }
+
   // ── Dashboard ────────────────────────────────────────────────────────────────
   const isSM = userRole === 'social-media';
   return (
@@ -184,6 +201,7 @@ export default function App() {
       onLogout={handleLogout}
       onSwitchAccount={handleSwitchAccount}
       onBack={isSM ? () => setActiveClient(null) : undefined}
+      onOpenCentral={isSM ? () => setScreen('central') : undefined}
     />
   );
 }

@@ -188,3 +188,25 @@ export async function lookupToken(token) {
   const snap = await getDoc(doc(db, TOKENS_COL, token));
   return snap.exists() ? snap.data() : null;
 }
+
+/**
+ * Retorna o token de acesso existente do cliente ou gera um novo, armazenando-o
+ * no documento do cliente para reutilização futura.
+ */
+export async function getOrCreateClientToken(clientId, ownerUid) {
+  const clientSnap = await getDoc(doc(db, CLIENTS_COL, String(clientId)));
+  if (clientSnap.exists() && clientSnap.data().latestToken) {
+    return clientSnap.data().latestToken;
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  const token = Array.from(arr, (b) => chars[b % chars.length]).join('');
+  await setDoc(doc(db, TOKENS_COL, token), {
+    clientId,
+    ownerUid: ownerUid ?? null,
+    createdAt: new Date().toISOString(),
+  });
+  await setDoc(doc(db, CLIENTS_COL, String(clientId)), { latestToken: token }, { merge: true });
+  return token;
+}
