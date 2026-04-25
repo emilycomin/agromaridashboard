@@ -502,23 +502,34 @@ export default function PostModal({ post, onClose, readOnly = false }) {
                     ⏳ Aguardando aprovação
                   </span>
                 )}
-                {!form.clienteReview && !form.enviadoParaAprovacao && (
-                  <button
-                    className="btn-send-approval"
-                    onClick={async () => {
-                      saveFields({ enviadoParaAprovacao: true, status: 'Aguardando Aprovação' });
-                      if (clientMeta?.phone) {
-                        const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
-                        const approvalUrl = `${window.location.origin}/?token=${token}`;
-                        const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
-                        setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
-                      }
-                    }}
-                    title="Enviar este post para o cliente aprovar"
-                  >
-                    📤 Mandar para aprovação
-                  </button>
-                )}
+                {(() => {
+                  const needsResend = form.clienteReview === 'ajustes' || form.clienteReview === 'rejeitado';
+                  const canSend = (!form.clienteReview && !form.enviadoParaAprovacao) || needsResend;
+                  if (!canSend) return null;
+                  return (
+                    <button
+                      className="btn-send-approval"
+                      onClick={async () => {
+                        saveFields({
+                          enviadoParaAprovacao: true,
+                          status: 'Aguardando Aprovação',
+                          clienteReview: null,
+                          clienteNotes: '',
+                          clienteNotification: false,
+                        });
+                        if (clientMeta?.phone) {
+                          const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
+                          const approvalUrl = `${window.location.origin}/?token=${token}`;
+                          const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                          setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
+                        }
+                      }}
+                      title={needsResend ? 'Reenviar este post para o cliente aprovar' : 'Enviar este post para o cliente aprovar'}
+                    >
+                      {needsResend ? '🔄 Reenviar para aprovação' : '📤 Mandar para aprovação'}
+                    </button>
+                  );
+                })()}
                 {whatsappUrl && (
                   <a
                     className="btn-send-approval"
