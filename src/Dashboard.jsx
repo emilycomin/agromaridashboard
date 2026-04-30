@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { INITIAL_POSTS, CURRENT_YEAR, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
+import { INITIAL_POSTS, CURRENT_YEAR, MONTH_NAMES, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
 import { subscribePosts, persistPost, removePost, loadSettings, persistSettings, getOrCreateClientToken, persistClient } from './services/db';
 import AppHeader from './components/AppHeader';
 import MonthSelector from './components/MonthSelector';
@@ -11,7 +11,7 @@ import PostModal from './components/PostModal';
 import MeetingsWidget from './components/MeetingsWidget';
 import GoogleCalendarWidget from './components/GoogleCalendarWidget';
 import CalendarTab from './components/CalendarTab';
-import { Tabs, NavLink } from '@mantine/core';
+// Tabs removido — navegação migrada para sidebar customizado
 import { OptionsContext } from './context/OptionsContext';
 import { PostsContext } from './context/PostsContext';
 import './Dashboard.css';
@@ -107,6 +107,13 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const [availableFormats,  setAvailableFormats]  = useState(FORMATS);
   const [availableStatuses, setAvailableStatuses] = useState(STATUSES);
   const [lastUpdated,       setLastUpdated]       = useState(null);
+  const [tagColors,    setTagColors]    = useState(() => {
+    const m = {};
+    Object.entries(PILLAR_COLORS).forEach(([k, v]) => { m[k] = { bg: v.bg, color: v.color }; });
+    return m;
+  });
+  const [formatColors, setFormatColors] = useState({});
+  const [statusColors, setStatusColors] = useState({});
 
   // Ref para saber se as configurações já foram carregadas do Firestore
   // (evita salvar os valores padrão por cima dos dados em nuvem no primeiro render)
@@ -127,6 +134,9 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
         if (settings.availableFormats?.length)  setAvailableFormats(settings.availableFormats);
         if (settings.availableStatuses?.length) setAvailableStatuses(settings.availableStatuses);
         if (settings.lastUpdated)               setLastUpdated(settings.lastUpdated);
+        if (settings.tagColors)                 setTagColors((prev) => ({ ...prev, ...settings.tagColors }));
+        if (settings.formatColors)              setFormatColors((prev) => ({ ...prev, ...settings.formatColors }));
+        if (settings.statusColors)              setStatusColors((prev) => ({ ...prev, ...settings.statusColors }));
       })
       .catch(console.error);
 
@@ -177,41 +187,71 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   // ─── SALVA CONFIGURAÇÕES NO FIRESTORE (quando mudam após carregamento) ────────
   useEffect(() => {
     if (!settingsReady.current) return;
-    persistSettings(clientId, { availableTags, availableFormats, availableStatuses }).catch(console.error);
-  }, [availableTags, availableFormats, availableStatuses]);
+    persistSettings(clientId, { availableTags, availableFormats, availableStatuses, tagColors, formatColors, statusColors }).catch(console.error);
+  }, [availableTags, availableFormats, availableStatuses, tagColors, formatColors, statusColors]);
 
   // ─── HANDLERS DE ETIQUETAS ───────────────────────────────────────────────────
-  const addTag = (name) => setAvailableTags((prev) => [...prev, name]);
+  const addTag = (name, colorObj) => {
+    setAvailableTags((prev) => [...prev, name]);
+    if (colorObj) setTagColors((prev) => ({ ...prev, [name]: colorObj }));
+  };
   const deleteTag = (name) => {
     setAvailableTags((prev) => prev.filter((t) => t !== name));
-    setPosts((prev) => prev.map((p) => ({ ...p, tags: p.tags.filter((t) => t !== name) })));
+    setTagColors((prev) => { const m = { ...prev }; delete m[name]; return m; });
+    setPosts((prev) => prev.map((p) => ({ ...p, tags: (p.tags ?? []).filter((t) => t !== name) })));
   };
   const renameTag = (oldName, newName) => {
     setAvailableTags((prev) => prev.map((t) => (t === oldName ? newName : t)));
+    setTagColors((prev) => {
+      if (!prev[oldName]) return prev;
+      const m = { ...prev, [newName]: prev[oldName] };
+      delete m[oldName];
+      return m;
+    });
     setPosts((prev) =>
-      prev.map((p) => ({ ...p, tags: p.tags.map((t) => (t === oldName ? newName : t)) }))
+      prev.map((p) => ({ ...p, tags: (p.tags ?? []).map((t) => (t === oldName ? newName : t)) }))
     );
   };
 
   // ─── HANDLERS DE FORMATOS ────────────────────────────────────────────────────
-  const addFormat = (name) => setAvailableFormats((prev) => [...prev, name]);
+  const addFormat = (name, colorObj) => {
+    setAvailableFormats((prev) => [...prev, name]);
+    if (colorObj) setFormatColors((prev) => ({ ...prev, [name]: colorObj }));
+  };
   const deleteFormat = (name) => {
     setAvailableFormats((prev) => prev.filter((f) => f !== name));
+    setFormatColors((prev) => { const m = { ...prev }; delete m[name]; return m; });
     setPosts((prev) => prev.map((p) => ({ ...p, format: p.format === name ? '' : p.format })));
   };
   const renameFormat = (oldName, newName) => {
     setAvailableFormats((prev) => prev.map((f) => (f === oldName ? newName : f)));
+    setFormatColors((prev) => {
+      if (!prev[oldName]) return prev;
+      const m = { ...prev, [newName]: prev[oldName] };
+      delete m[oldName];
+      return m;
+    });
     setPosts((prev) => prev.map((p) => ({ ...p, format: p.format === oldName ? newName : p.format })));
   };
 
   // ─── HANDLERS DE STATUS ──────────────────────────────────────────────────────
-  const addStatus = (name) => setAvailableStatuses((prev) => [...prev, name]);
+  const addStatus = (name, colorObj) => {
+    setAvailableStatuses((prev) => [...prev, name]);
+    if (colorObj) setStatusColors((prev) => ({ ...prev, [name]: colorObj }));
+  };
   const deleteStatus = (name) => {
     setAvailableStatuses((prev) => prev.filter((s) => s !== name));
+    setStatusColors((prev) => { const m = { ...prev }; delete m[name]; return m; });
     setPosts((prev) => prev.map((p) => ({ ...p, status: p.status === name ? '' : p.status })));
   };
   const renameStatus = (oldName, newName) => {
     setAvailableStatuses((prev) => prev.map((s) => (s === oldName ? newName : s)));
+    setStatusColors((prev) => {
+      if (!prev[oldName]) return prev;
+      const m = { ...prev, [newName]: prev[oldName] };
+      delete m[oldName];
+      return m;
+    });
     setPosts((prev) => prev.map((p) => ({ ...p, status: p.status === oldName ? newName : p.status })));
   };
 
@@ -378,8 +418,11 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   // ─── RENDER ──────────────────────────────────────────────────────────────────
   const optionsValue = {
     availableTags, addTag, deleteTag, renameTag,
+    tagColors,
     availableFormats, addFormat, deleteFormat, renameFormat,
+    formatColors,
     availableStatuses, addStatus, deleteStatus, renameStatus,
+    statusColors,
   };
 
   const postsValue = {
@@ -414,36 +457,48 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {!isCliente && (
-          <aside style={{ width: 260, backgroundColor: '#FFFFFF', borderRight: '1px solid #E9ECEF', overflowY: 'auto', flexShrink: 0, padding: '12px 8px' }}>
-            <NavLink
-              label="Dashboard"
-              active={activeMenuTab === 'dashboard'}
-              color="violet"
-              variant="light"
+          <aside className="db-sidebar">
+            {/* Marca */}
+            <div className="db-sidebar-brand">
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#3e3a53' }}>Fl</span>
+              <span className="db-sidebar-brand-name">owly</span>
+            </div>
+
+            {/* Navegação */}
+            <button
+              className={`db-nav-item ${activeMenuTab === 'dashboard' ? 'active' : ''}`}
               onClick={() => setActiveMenuTab('dashboard')}
-              styles={{ label: { fontWeight: 600, fontSize: 14 } }}
-            />
-            <NavLink
-              label="Cliente"
-              defaultOpened
-              childrenOffset={28}
-              styles={{ label: { fontWeight: 600, fontSize: 14 } }}
             >
-              <NavLink
-                label="Configurações"
-                active={activeMenuTab === 'alterar-info'}
-                color="violet"
-                variant="light"
-                onClick={() => setActiveMenuTab('alterar-info')}
-              />
-              <NavLink
-                label="Notificações pelo WhatsApp"
-                active={activeMenuTab === 'whatsapp-notif'}
-                color="violet"
-                variant="light"
-                onClick={() => setActiveMenuTab('whatsapp-notif')}
-              />
-            </NavLink>
+              <span className="db-nav-icon">🏠</span>
+              <span className="db-nav-label">Dashboard</span>
+            </button>
+            <button
+              className={`db-nav-item ${activeMenuTab === 'calendario' ? 'active' : ''}`}
+              onClick={() => setActiveMenuTab('calendario')}
+            >
+              <span className="db-nav-icon">📅</span>
+              <span className="db-nav-label">Calendário</span>
+            </button>
+            <button
+              className={`db-nav-item ${activeMenuTab === 'cliente' ? 'active' : ''}`}
+              onClick={() => setActiveMenuTab('cliente')}
+            >
+              <span className="db-nav-icon">👤</span>
+              <span className="db-nav-label">Cliente</span>
+            </button>
+            <button className="db-nav-item nav-disabled" disabled>
+              <span className="db-nav-icon">⚙️</span>
+              <span className="db-nav-label">Conta</span>
+            </button>
+
+            {/* Rodapé */}
+            <div className="db-sidebar-spacer" />
+            <div className="db-sidebar-footer">
+              <button className="db-nav-item" onClick={onLogout} style={{ color: '#c45a5a' }}>
+                <span className="db-nav-icon">🚪</span>
+                <span className="db-nav-label">Sair</span>
+              </button>
+            </div>
           </aside>
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
@@ -453,152 +508,206 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
           </div>
         )}
 
-        {!isCliente && activeMenuTab === 'alterar-info' && (
-          <div className="dashboard-menu-panel">
-            <h3>Configurações do cliente</h3>
-            <p>Edite os dados do cliente ativos no painel.</p>
-            <MenuAlterarInfo client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
+        {!isCliente && activeMenuTab === 'cliente' && (
+          <div className="cliente-page">
+            <div className="cliente-page-header">
+              <h2 className="cliente-page-title">
+                <span>{clientMeta.emoji ?? '🐾'}</span> {clientMeta.name ?? 'Cliente'}
+              </h2>
+              <p className="cliente-page-sub">Gerencie os dados e comunicação deste cliente</p>
+            </div>
+            <div className="cliente-page-grid">
+              {/* ── Coluna: Dados do cliente ── */}
+              <div className="cliente-card">
+                <div className="cliente-card-header">
+                  <span className="cliente-card-icon">📋</span>
+                  <div>
+                    <div className="cliente-card-title">Dados do Cliente</div>
+                    <div className="cliente-card-sub">Nome, Instagram, ícone e cor de destaque</div>
+                  </div>
+                </div>
+                <MenuAlterarInfo client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
+              </div>
+
+              {/* ── Coluna: WhatsApp ── */}
+              <div className="cliente-card">
+                <div className="cliente-card-header">
+                  <span className="cliente-card-icon">💬</span>
+                  <div>
+                    <div className="cliente-card-title">Notificação por WhatsApp</div>
+                    <div className="cliente-card-sub">Envie o link de aprovação diretamente ao cliente</div>
+                  </div>
+                </div>
+                <MenuWhatsAppNotif client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
+              </div>
+            </div>
           </div>
         )}
 
-        {!isCliente && activeMenuTab === 'whatsapp-notif' && (
-          <div className="dashboard-menu-panel">
-            <h3>Notificação pelo WhatsApp</h3>
-            <p>Envie uma mensagem ao cliente com o link de acesso ao painel.</p>
-            <MenuWhatsAppNotif client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
-          </div>
-        )}
-
+        {/* ── DASHBOARD principal ── */}
         {(isCliente || activeMenuTab === 'dashboard') && (
         <div className="main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* ── BARRA DE APROVAÇÃO (somente cliente) ── */}
-        {isCliente && (
-          <div className={`approval-banner ${postsParaAprovar.length === 0 ? 'approval-banner-done' : ''}`}>
-            {postsParaAprovar.length > 0 ? (
-              <>
-                <div className="approval-banner-text">
-                  <span className="approval-banner-count">{postsParaAprovar.length}</span>
-                  {postsParaAprovar.length === 1
-                    ? ' post aguardando sua aprovação!'
-                    : ' posts aguardando sua aprovação!'}
+
+          {/* Barra de aprovação — somente cliente */}
+          {isCliente && (
+            <div className={`approval-banner ${postsParaAprovar.length === 0 ? 'approval-banner-done' : ''}`}>
+              {postsParaAprovar.length > 0 ? (
+                <>
+                  <div className="approval-banner-text">
+                    <span className="approval-banner-count">{postsParaAprovar.length}</span>
+                    {postsParaAprovar.length === 1 ? ' post aguardando sua aprovação!' : ' posts aguardando sua aprovação!'}
+                  </div>
+                  <button className="approval-banner-btn" onClick={startApprovalQueue}>Iniciar revisão ▶</button>
+                </>
+              ) : (
+                <div className="approval-banner-text">✅ Todos os posts foram revisados!</div>
+              )}
+            </div>
+          )}
+
+          {/* Hero card — somente social media */}
+          {!isCliente && (
+            <div className="dash-hero">
+              <div>
+                <div className="dash-hero-greeting">
+                  Olá, {firebaseUser?.displayName?.split(' ')[0] ?? 'Social Media'} 👋
                 </div>
-                <button className="approval-banner-btn" onClick={startApprovalQueue}>
-                  Iniciar revisão ▶
-                </button>
-              </>
-            ) : (
-              <div className="approval-banner-text">
-                ✅ Todos os posts foram revisados!
+                <div className="dash-hero-title">{clientTitle}</div>
+                <div className="dash-hero-sub">
+                  {MONTH_NAMES[calendarMonth]} · {CURRENT_YEAR} · {clientSubtitle}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              <div className="dash-hero-right">
+                <div className="dash-hero-stats">
+                  <div className="dash-hero-stat">
+                    <div className="dash-hero-stat-val">{monthPosts.length}</div>
+                    <div className="dash-hero-stat-label">Planejados</div>
+                  </div>
+                  <div className="dash-hero-stat">
+                    <div className="dash-hero-stat-val">
+                      {monthPosts.filter((p) => p.status === 'Publicado').length}
+                    </div>
+                    <div className="dash-hero-stat-label">Publicados</div>
+                  </div>
+                </div>
+                <button className="dash-hero-btn" onClick={() => openNewPost()}>
+                  + Novo Post
+                </button>
+              </div>
+            </div>
+          )}
 
-        <MonthSelector
-          selectedMonths={selectedMonths}
-          onToggle={toggleMonth}
-          onSelectAll={selectAllMonths}
-          onClearAll={clearMonths}
-        />
+          {/* Seletor de meses */}
+          <MonthSelector
+            selectedMonths={selectedMonths}
+            onToggle={toggleMonth}
+            onSelectAll={selectAllMonths}
+            onClearAll={clearMonths}
+          />
 
-        <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
+          {/* KPI cards */}
+          <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
 
-        {/* ── PERFIL CLIENTE: sem tabs ── */}
-        {isCliente && (
-          <>
-            <MeetingsWidget googleAccessToken={googleAccessToken} />
+          {/* Google Calendar widget */}
+          <GoogleCalendarWidget googleAccessToken={googleAccessToken} />
+
+          {/* Calendário + Posts do mês (dois colunas) */}
+          <div className="dash-two-col">
             <CalendarCard
               currentMonth={calendarMonth}
               calendarDays={calendarDays}
               onMonthChange={(m) => {
                 setCalendarMonth(m);
-                setSelectedMonths((prev) =>
-                  prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
-                );
+                setSelectedMonths((prev) => prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b));
               }}
               onPostClick={setSelectedPost}
-              onNewPost={null}
+              onNewPost={isCliente ? null : (date) => openNewPost(date)}
             />
-            <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
-          </>
+
+            {/* Lista de posts do mês */}
+            <div className="dash-posts-panel card">
+              <div className="card-header">
+                <h2>📝 Posts do mês</h2>
+                <span className="badge">{filteredAndSortedPosts.length} posts</span>
+              </div>
+              <div className="dash-posts-list">
+                {filteredAndSortedPosts.length === 0 && (
+                  <p className="dash-posts-empty">Nenhum post neste período.</p>
+                )}
+                {filteredAndSortedPosts.slice(0, 10).map((post) => {
+                  const d = post.date ? new Date(post.date + 'T12:00:00') : null;
+                  const dateLabel = d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—';
+                  const fmtKey = { 'Reel': 'reel', 'Carrossel': 'carrossel', 'Post': 'post', 'Stories': 'stories' }[post.format] ?? 'post';
+                  const stKey  = { 'Planejado': 'planejado', 'Em Produção': 'producao', 'Agendado': 'agendado', 'Publicado': 'publicado', 'Aguardando Aprovação': 'aguardando' }[post.status] ?? 'planejado';
+                  return (
+                    <div key={post.id} className="dash-post-row" onClick={() => setSelectedPost(post)}>
+                      <div className="dash-post-dot" style={{ background: clientMeta?.color ?? '#3e3a53' }} />
+                      <div className="dash-post-info">
+                        <div className="dash-post-title">{post.title}</div>
+                        <div className="dash-post-meta">
+                          {dateLabel}
+                          {post.format && <span className={`format-tag fmt-${fmtKey}`}>{post.format}</span>}
+                        </div>
+                      </div>
+                      {post.status && <span className={`status-tag status-${stKey}`}>{post.status}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Gráficos */}
+          <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
+
+          {/* Tabela completa de posts — somente social media */}
+          {!isCliente && (
+            <PostsTable
+              posts={filteredAndSortedPosts}
+              tableFilter={tableFilter}
+              onFilterChange={setTableFilter}
+              onSort={handleSort}
+              onPostClick={setSelectedPost}
+              onDeletePost={handleDeletePost}
+              onAddPost={openNewPost}
+              onBulkSendApproval={async (ids) => {
+                setPosts((prev) =>
+                  prev.map((p) => ids.includes(p.id)
+                    ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
+                    : p)
+                );
+                ids.forEach((id) => {
+                  const p = posts.find((x) => x.id === id);
+                  if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
+                });
+                if (clientMeta?.phone) {
+                  const token = await getOrCreateClientToken(clientId, firebaseUser?.uid);
+                  const approvalUrl = `${window.location.origin}/?token=${token}`;
+                  const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                  setWhatsappModal({ url: `https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}` });
+                }
+              }}
+              readOnly={false}
+            />
+          )}
+        </div>
         )}
 
-        {/* ── PERFIL SOCIAL MEDIA: com Tabs ── */}
-        {!isCliente && (
-          <Tabs defaultValue="conteudo" className="sm-tabs">
-            <Tabs.List className="sm-tabs-list">
-              <Tabs.Tab value="conteudo" className="sm-tabs-tab">
-                📋 Conteúdo
-              </Tabs.Tab>
-              <Tabs.Tab value="calendario" className="sm-tabs-tab">
-                🗓 Calendário
-              </Tabs.Tab>
-            </Tabs.List>
-
-            {/* ── Aba Conteúdo ── */}
-            <Tabs.Panel value="conteudo" className="sm-tabs-panel">
-              <GoogleCalendarWidget googleAccessToken={googleAccessToken} />
-              <CalendarCard
-                currentMonth={calendarMonth}
-                calendarDays={calendarDays}
-                onMonthChange={(m) => {
-                  setCalendarMonth(m);
-                  setSelectedMonths((prev) =>
-                    prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
-                  );
-                }}
-                onPostClick={setSelectedPost}
-                onNewPost={(date) => openNewPost(date)}
-              />
-              <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
-              <PostsTable
-                posts={filteredAndSortedPosts}
-                tableFilter={tableFilter}
-                onFilterChange={setTableFilter}
-                onSort={handleSort}
-                onPostClick={setSelectedPost}
-                onDeletePost={handleDeletePost}
-                onAddPost={openNewPost}
-                onBulkSendApproval={async (ids) => {
-                  setPosts((prev) =>
-                    prev.map((p) => ids.includes(p.id)
-                      ? { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }
-                      : p)
-                  );
-                  ids.forEach((id) => {
-                    const p = posts.find((x) => x.id === id);
-                    if (p) persistPost(clientId, { ...p, enviadoParaAprovacao: true, status: 'Aguardando Aprovação' }).catch(console.error);
-                  });
-                  if (clientMeta?.phone) {
-                    const token = await getOrCreateClientToken(clientId, firebaseUser?.uid);
-                    const approvalUrl = `${window.location.origin}/?token=${token}`;
-                    const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
-                    setWhatsappModal({ url: `https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}` });
-                  }
-                }}
-                readOnly={false}
-              />
-            </Tabs.Panel>
-
-            {/* ── Aba Calendário ── */}
-            <Tabs.Panel value="calendario" className="sm-tabs-panel">
-              <CalendarTab
-                posts={posts}
-                onPostClick={setSelectedPost}
-                onNewPost={(date) => openNewPost(date)}
-                currentMonth={calendarMonth}
-                googleAccessToken={googleAccessToken}
-                onMonthChange={(m) => {
-                  setCalendarMonth(m);
-                  setSelectedMonths((prev) =>
-                    prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b)
-                  );
-                }}
-              />
-            </Tabs.Panel>
-          </Tabs>
-        )}
-      </div>
+        {/* ── ABA CALENDÁRIO COMPLETO ── */}
+        {!isCliente && activeMenuTab === 'calendario' && (
+        <div className="main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <CalendarTab
+            posts={posts}
+            onPostClick={setSelectedPost}
+            onNewPost={(date) => openNewPost(date)}
+            currentMonth={calendarMonth}
+            googleAccessToken={googleAccessToken}
+            onMonthChange={(m) => {
+              setCalendarMonth(m);
+              setSelectedMonths((prev) => prev.includes(m) ? prev : [...prev, m].sort((a, b) => a - b));
+            }}
+          />
+        </div>
         )}
 
       {/* Renderiza somente quando há post selecionado — garante remontagem limpa
@@ -694,7 +803,7 @@ function MenuAlterarInfo({ client, uid, onUpdate }) {
           <span>Sugestões</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
             {EMOJI_SUGGESTIONS.map((em) => (
-              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#6C63FF' : '#E0E0EE'}`, borderRadius: 8, background: form.emoji === em ? '#EEF0FF' : '#FAFAFE', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
+              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#3e3a53' : '#EDE7DC'}`, borderRadius: 8, background: form.emoji === em ? '#F2EDE6' : '#FAFAF8', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
                 {em}
               </button>
             ))}
@@ -749,12 +858,12 @@ function MenuWhatsAppNotif({ client, uid, onUpdate }) {
 
   return (
     <div className="dashboard-menu-whatsapp">
-      <div style={{ background: '#F9F9FC', border: '1.5px solid #E0E0EE', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+      <div style={{ background: '#FAFAF8', border: '1.5px solid #EDE7DC', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#3A3A5A', marginBottom: 8 }}>Número do cliente</div>
         {editPhone ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #E0E0EE', borderRadius: 8, fontSize: 14, fontFamily: "'Inter', sans-serif" }} />
-            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#6C63FF', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
+            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#3e3a53', color: '#fffdf5', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
               {savingPhone ? 'Salvando…' : 'Salvar'}
             </button>
             {client?.phone && (

@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flowly — Preview do novo design</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────────── */
+    :root {
+      --bg-app:        #FEFBF5;
+      --bg-card:       #FFFFFF;
+      --bg-sidebar:    #EEEAFF;
+      --primary:       #6C63FF;
+      --primary-light: #EDE9FF;
+      --primary-dark:  #4B44CC;
+      --accent-yellow: #FFE566;
+      --accent-yellow-dark: #E6CC00;
+      --accent-green:  #E9EDC9;
+      --accent-green-dark: #7D8A3A;
+      /* Candy colors */
+      --candy-purple:  #D8D6FF;
+      --candy-blue:    #C8E4FF;
+      --candy-green:   #D4F0C4;
+      --candy-peach:   #FFD9C2;
+      --candy-pink:    #FFD6E8;
+      --candy-yellow:  #FFF3B0;
+      --text-main:     #2D2A4E;
+      --text-sub:      #8B89A8;
+      --border:        #E8E5F5;
+      --header-bg:     #1A1A2E;
+      --header-text:   #FFFFFF;
+      --shadow-card:   none;
+      --shadow-hover:  none;
+      --radius-card:   16px;
+      --radius-input:  12px;
+      --radius-btn:    8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-app); color: var(--text-main); }
+
+    /* ── Layout ────────────────────────────────────────────────── */
+    .layout { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    .header {
+      background: var(--header-bg);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .header-brand { font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    .header-brand span { color: var(--primary); }
+    .header-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); }
+    .header-title-block { display: flex; flex-direction: column; }
+    .header-title { font-size: 13px; font-weight: 600; color: #fff; }
+    .header-sub { font-size: 11px; color: rgba(255,255,255,0.5); }
+    .header-search {
+      flex: 1; max-width: 320px; margin: 0 auto;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-input);
+      height: 34px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 12px;
+    }
+    .header-search span { font-size: 12px; color: rgba(255,255,255,0.4); }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .header-user { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500; }
+    .header-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    /* ── Body ──────────────────────────────────────────────────── */
+    .body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ───────────────────────────────────────────────── */
+    .sidebar {
+      width: 56px;
+      background: var(--bg-sidebar);
+      padding: 12px 0;
+      display: flex; flex-direction: column; gap: 2px;
+      flex-shrink: 0;
+      overflow: hidden;
+      transition: width 0.22s cubic-bezier(0.4,0,0.2,1);
+      position: relative;
+      z-index: 5;
+    }
+    .sidebar:hover {
+      width: 220px;
+      box-shadow: 4px 0 20px rgba(108,99,255,0.08);
+    }
+    .nav-section-label {
+      font-size: 10px; font-weight: 700; color: var(--text-sub);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 8px 16px 4px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s 0.05s;
+    }
+    .sidebar:hover .nav-section-label { opacity: 1; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px;
+      font-size: 13px; font-weight: 500; color: var(--text-sub);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      position: relative;
+      border-radius: 10px 0 0 10px;
+      margin-right: 0;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.5);
+      color: var(--primary);
+    }
+
+    /* Active: mesma cor do fundo do app — cria fusão visual com o conteúdo */
+    .nav-item.active {
+      background: var(--bg-app);
+      color: var(--primary);
+      font-weight: 700;
+      border-left: 3px solid var(--primary);
+      box-shadow: none;
+    }
+
+    /* Cantos externos arredondados — criam a curva de conexão */
+    .nav-item.active::before,
+    .nav-item.active::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      width: 14px; height: 14px;
+      background: var(--bg-sidebar);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .nav-item.active::before {
+      top: -14px;
+      border-bottom-right-radius: 14px;
+      box-shadow: 5px 5px 0 5px var(--bg-app);
+    }
+    .nav-item.active::after {
+      bottom: -14px;
+      border-top-right-radius: 14px;
+      box-shadow: 5px -5px 0 5px var(--bg-app);
+    }
+
+    .nav-item .icon {
+      font-size: 16px;
+      width: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .nav-label {
+      opacity: 0;
+      transition: opacity 0.15s 0.05s;
+    }
+    .sidebar:hover .nav-label { opacity: 1; }
+
+    /* ── Main ──────────────────────────────────────────────────── */
+    .main {
+      flex: 1; overflow-y: auto; padding: 28px;
+      display: flex; flex-direction: column; gap: 28px;
+    }
+
+    /* ── Page header ───────────────────────────────────────────── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; }
+    .page-title { font-size: 22px; font-weight: 800; color: var(--text-main); }
+    .page-sub { font-size: 13px; color: var(--text-sub); margin-top: 2px; }
+    .btn-primary {
+      background: var(--primary); color: #fff;
+      border: none; border-radius: var(--radius-btn);
+      padding: 9px 18px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    /* ── Month selector ────────────────────────────────────────── */
+    .month-selector { display: flex; gap: 6px; flex-wrap: wrap; }
+    .month-pill {
+      padding: 5px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card); color: var(--text-sub);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .month-pill:hover { background: var(--candy-purple); border-color: var(--primary); color: var(--primary); }
+    .month-pill.active {
+      background: var(--candy-purple);
+      border-color: var(--primary);
+      color: var(--primary); font-weight: 700;
+    }
+
+    /* ── KPI Row ───────────────────────────────────────────────── */
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .kpi-card {
+      border-radius: var(--radius-card);
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 6px;
+      border: none;
+    }
+    .kpi-label { font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.45); text-transform: uppercase; letter-spacing: 0.07em; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: var(--text-main); line-height: 1; }
+    .kpi-sub { font-size: 11px; color: rgba(0,0,0,0.4); }
+    .kpi-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(0,0,0,0.08); color: rgba(0,0,0,0.55);
+      padding: 3px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; width: fit-content;
+    }
+    /* Mini sparkline inside KPI */
+    .kpi-spark { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin-top: 4px; }
+    .kpi-spark-bar { width: 6px; border-radius: 3px 3px 0 0; background: rgba(0,0,0,0.15); }
+    .kpi-spark-bar.hi { background: rgba(0,0,0,0.35); }
+
+    /* ── Two-col ───────────────────────────────────────────────── */
+    .two-col { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+
+    /* ── Calendar Card ─────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-size: 14px; font-weight: 700; color: var(--text-main); }
+    .card-body { padding: 16px 20px; }
+
+    .calendar-nav { display: flex; align-items: center; gap: 10px; }
+    .cal-nav-btn {
+      width: 28px; height: 28px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: var(--bg-card);
+      font-size: 13px; cursor: pointer; color: var(--text-sub);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cal-nav-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+    .cal-month { font-size: 13px; font-weight: 700; color: var(--text-main); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .cal-day-name {
+      text-align: center; font-size: 10px; font-weight: 700;
+      color: var(--text-sub); padding: 6px 0;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .cal-day {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: var(--text-sub); border-radius: 10px;
+      position: relative; cursor: pointer;
+      flex-direction: column; gap: 2px;
+    }
+    .cal-day:hover { background: var(--primary-light); color: var(--primary); }
+    .cal-day.current { background: var(--primary); color: #fff; font-weight: 700; }
+    .cal-day.has-post { color: var(--text-main); font-weight: 600; }
+    .cal-day.other-month { color: #D0CEEA; }
+    .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); }
+    .cal-dot.yellow { background: var(--accent-yellow-dark); }
+
+    /* ── Posts list ────────────────────────────────────────────── */
+    .post-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .post-row:last-child { border-bottom: none; }
+    .post-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .post-info { flex: 1; }
+    .post-title { font-size: 12px; font-weight: 600; color: var(--text-main); }
+    .post-meta { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .post-status {
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .status-plan { background: var(--candy-purple); color: #4B44CC; }
+    .status-pub  { background: var(--candy-green);  color: #3A7A1E; }
+    .status-wait { background: var(--candy-peach);  color: #C45000; }
+    .status-prod { background: var(--candy-blue);   color: #1565C0; }
+
+    /* ── Pill tags ─────────────────────────────────────────────── */
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .pill-reel    { background: var(--candy-pink);   color: #B0185A; }
+    .pill-car     { background: var(--candy-blue);   color: #1565C0; }
+    .pill-stories { background: var(--candy-green);  color: #3A7A1E; }
+    .pill-post    { background: var(--candy-purple); color: #4B44CC; }
+
+    /* ── Charts placeholder ────────────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; padding-top: 8px; }
+    .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .bar {
+      width: 100%; border-radius: 6px 6px 0 0;
+      background: var(--primary-light);
+      transition: background 0.2s;
+      min-height: 8px;
+    }
+    .bar.active { background: var(--primary); }
+    .bar.yellow { background: var(--accent-yellow); }
+    .bar-label { font-size: 9px; color: var(--text-sub); text-align: center; }
+
+    .donut-wrap { display: flex; align-items: center; gap: 16px; }
+    .donut-legend { display: flex; flex-direction: column; gap: 6px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-sub); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Approval banner ───────────────────────────────────────── */
+    .approval-banner {
+      background: var(--accent-yellow);
+      border-radius: var(--radius-card);
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1.5px solid var(--accent-yellow-dark);
+    }
+    .approval-text { font-size: 13px; font-weight: 600; color: var(--text-main); }
+    .btn-dark {
+      background: var(--text-main); color: #fff;
+      border: none; border-radius: var(--radius-btn);
+      padding: 7px 16px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+
+    /* ── Color palette strip (design reference) ────────────────── */
+    .palette-strip {
+      position: fixed; bottom: 16px; right: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-hover);
+      padding: 14px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 100;
+      min-width: 200px;
+    }
+    .palette-title { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.08em; }
+    .palette-row { display: flex; gap: 6px; }
+    .swatch {
+      width: 28px; height: 28px; border-radius: 8px;
+      border: 1.5px solid rgba(0,0,0,0.08);
+      position: relative; cursor: default;
+    }
+    .swatch:hover::after {
+      content: attr(data-hex);
+      position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+      font-size: 9px; color: var(--text-sub); white-space: nowrap;
+      font-family: monospace; background: #fff; padding: 2px 4px;
+      border-radius: 4px; border: 1px solid var(--border);
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── HEADER ── -->
+  <header class="header">
+    <div class="header-brand">Flow<span>ly</span></div>
+    <div class="header-divider"></div>
+    <div class="header-title-block">
+      <div class="header-title">🐾 AGROMARI PETSHOP</div>
+      <div class="header-sub">@agro.mari</div>
+    </div>
+    <div class="header-search">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Buscar cliente…</span>
+    </div>
+    <div class="header-right">
+      <div class="header-user">Emily Comin</div>
+      <div class="header-avatar">E</div>
+    </div>
+  </header>
+
+  <!-- ── BODY ── -->
+  <div class="body">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="nav-item active">
+        <span class="icon">🏠</span>
+        <span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">👤</span>
+        <span class="nav-label">Cliente</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📈</span>
+        <span class="nav-label">Métricas</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚙️</span>
+        <span class="nav-label">Conta</span>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="main">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div>
+          <div class="page-title">Painel de Conteúdo</div>
+          <div class="page-sub">Gerenciando posts de Abril · 2026</div>
+        </div>
+        <button class="btn-primary">+ Novo Post</button>
+      </div>
+
+      <!-- Month selector -->
+      <div>
+        <div class="month-selector">
+          <span class="month-pill">Jan</span>
+          <span class="month-pill">Fev</span>
+          <span class="month-pill">Mar</span>
+          <span class="month-pill active">Abr</span>
+          <span class="month-pill">Mai</span>
+          <span class="month-pill">Jun</span>
+          <span class="month-pill">Jul</span>
+          <span class="month-pill">Ago</span>
+          <span class="month-pill">Set</span>
+          <span class="month-pill">Out</span>
+          <span class="month-pill">Nov</span>
+          <span class="month-pill">Dez</span>
+        </div>
+
+      </div>
+
+      <!-- KPI Row — 8 cards, 2 linhas de 4 -->
+      <div class="kpi-row">
+          <div class="kpi-card" style="background:#D8D6FF">
+            <div class="kpi-label">Total de Posts</div>
+            <div class="kpi-value">23</div>
+            <div class="kpi-sub">No mês selecionado</div>
+          </div>
+          <div class="kpi-card" style="background:#D4F0C4">
+            <div class="kpi-label">Publicados</div>
+            <div class="kpi-value">8</div>
+            <div class="kpi-badge">✓ No prazo</div>
+          </div>
+          <div class="kpi-card" style="background:#C8E4FF">
+            <div class="kpi-label">Em Produção</div>
+            <div class="kpi-value">7</div>
+            <div class="kpi-sub">Sendo trabalhados</div>
+          </div>
+          <div class="kpi-card" style="background:#FFD9C2">
+            <div class="kpi-label">Aguard. Aprovação</div>
+            <div class="kpi-value">4</div>
+            <div class="kpi-sub">Pendentes com cliente</div>
+          </div>
+          <div class="kpi-card" style="background:#FFF3B0">
+            <div class="kpi-label">Planejados</div>
+            <div class="kpi-value">9</div>
+            <div class="kpi-sub">Ainda não iniciados</div>
+          </div>
+          <div class="kpi-card" style="background:#FFD6E8">
+            <div class="kpi-label">Aprovados</div>
+            <div class="kpi-value">6</div>
+            <div class="kpi-badge">✓ Pelo cliente</div>
+          </div>
+          <div class="kpi-card" style="background:#E9EDC9">
+            <div class="kpi-label">Taxa de Aprovação</div>
+            <div class="kpi-value">75<span style="font-size:16px;font-weight:600">%</span></div>
+            <div class="kpi-sub">De posts enviados</div>
+          </div>
+          <div class="kpi-card" style="background:#C8E4FF">
+            <div class="kpi-label">Posts Prontos</div>
+            <div class="kpi-spark">
+              <div class="kpi-spark-bar" style="height:40%"></div>
+              <div class="kpi-spark-bar" style="height:55%"></div>
+              <div class="kpi-spark-bar hi" style="height:70%"></div>
+              <div class="kpi-spark-bar" style="height:50%"></div>
+              <div class="kpi-spark-bar hi" style="height:85%"></div>
+              <div class="kpi-spark-bar hi" style="height:100%"></div>
+              <div class="kpi-spark-bar" style="height:65%"></div>
+            </div>
+            <div class="kpi-sub">Evolução semanal</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Calendário + Posts recentes -->
+      <div class="two-col">
+
+        <!-- Calendário -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📅 Calendário — Abril 2026</div>
+            <div class="calendar-nav">
+              <button class="cal-nav-btn">‹</button>
+              <span class="cal-month">Abr</span>
+              <button class="cal-nav-btn">›</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="cal-grid">
+              <div class="cal-day-name">Dom</div><div class="cal-day-name">Seg</div>
+              <div class="cal-day-name">Ter</div><div class="cal-day-name">Qua</div>
+              <div class="cal-day-name">Qui</div><div class="cal-day-name">Sex</div>
+              <div class="cal-day-name">Sáb</div>
+              <!-- Row 1 -->
+              <div class="cal-day other-month">29</div><div class="cal-day other-month">30</div>
+              <div class="cal-day other-month">31</div><div class="cal-day">1</div>
+              <div class="cal-day">2</div><div class="cal-day">3</div><div class="cal-day">4</div>
+              <!-- Row 2 -->
+              <div class="cal-day">5</div><div class="cal-day">6</div><div class="cal-day">7</div>
+              <div class="cal-day">8</div>
+              <div class="cal-day has-post">9<div class="cal-dot"></div></div>
+              <div class="cal-day">10</div><div class="cal-day">11</div>
+              <!-- Row 3 -->
+              <div class="cal-day">12</div><div class="cal-day">13</div>
+              <div class="cal-day has-post">14<div class="cal-dot yellow"></div></div>
+              <div class="cal-day">15</div>
+              <div class="cal-day has-post">16<div class="cal-dot"></div></div>
+              <div class="cal-day">17</div>
+              <div class="cal-day has-post">18<div class="cal-dot"></div></div>
+              <!-- Row 4 -->
+              <div class="cal-day">19</div><div class="cal-day">20</div>
+              <div class="cal-day has-post">21<div class="cal-dot yellow"></div></div>
+              <div class="cal-day">22</div>
+              <div class="cal-day has-post">23<div class="cal-dot"></div></div>
+              <div class="cal-day">24</div><div class="cal-day">25</div>
+              <!-- Row 5 -->
+              <div class="cal-day">26</div>
+              <div class="cal-day current">27</div>
+              <div class="cal-day">28</div><div class="cal-day">29</div><div class="cal-day">30</div>
+              <div class="cal-day other-month">1</div><div class="cal-day other-month">2</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Posts recentes -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📝 Posts do mês</div>
+          </div>
+          <div class="card-body">
+            <div class="post-row">
+              <div class="post-dot" style="background:#C2185B"></div>
+              <div class="post-info">
+                <div class="post-title">Antes e Depois: Banho do Bolinha</div>
+                <div class="post-meta">11 Abr · <span class="pill pill-reel">Reel</span></div>
+              </div>
+              <div class="post-status status-plan">Planejado</div>
+            </div>
+            <div class="post-row">
+              <div class="post-dot" style="background:#1565C0"></div>
+              <div class="post-info">
+                <div class="post-title">Como escolher a ração certa</div>
+                <div class="post-meta">14 Abr · <span class="pill pill-car">Carrossel</span></div>
+              </div>
+              <div class="post-status status-prod">Em Produção</div>
+            </div>
+            <div class="post-row">
+              <div class="post-dot" style="background:#6A1B9A"></div>
+              <div class="post-info">
+                <div class="post-title">Pets da semana ❤️</div>
+                <div class="post-meta">18 Abr · <span class="pill pill-car">Carrossel</span></div>
+              </div>
+              <div class="post-status status-wait">Aguardando</div>
+            </div>
+            <div class="post-row">
+              <div class="post-dot" style="background:#2E7D32"></div>
+              <div class="post-info">
+                <div class="post-title">15 anos de tosa: o que aprendi</div>
+                <div class="post-meta">21 Abr · <span class="pill pill-reel">Reel</span></div>
+              </div>
+              <div class="post-status status-pub">Publicado</div>
+            </div>
+            <div class="post-row">
+              <div class="post-dot" style="background:#E65100"></div>
+              <div class="post-info">
+                <div class="post-title">Cuidados com o calor no verão</div>
+                <div class="post-meta">23 Abr · <span class="pill pill-stories">Stories</span></div>
+              </div>
+              <div class="post-status status-plan">Planejado</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-row">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📊 Posts por Pilar</div></div>
+          <div class="card-body">
+            <div class="chart-bars">
+              <div class="bar-wrap"><div class="bar" style="height:60%"></div><div class="bar-label">Educ.</div></div>
+              <div class="bar-wrap"><div class="bar active" style="height:100%"></div><div class="bar-label">Ant/Dep</div></div>
+              <div class="bar-wrap"><div class="bar yellow" style="height:45%"></div><div class="bar-label">Human.</div></div>
+              <div class="bar-wrap"><div class="bar" style="height:70%"></div><div class="bar-label">Prova S.</div></div>
+              <div class="bar-wrap"><div class="bar active" style="height:55%"></div><div class="bar-label">Produtos</div></div>
+              <div class="bar-wrap"><div class="bar" style="height:30%"></div><div class="bar-label">Entret.</div></div>
+              <div class="bar-wrap"><div class="bar yellow" style="height:20%"></div><div class="bar-label">Especial</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🎬 Distribuição de Formatos</div></div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="28" fill="none" stroke="#EDE9FF" stroke-width="14"/>
+                <circle cx="40" cy="40" r="28" fill="none" stroke="#6C63FF" stroke-width="14"
+                  stroke-dasharray="70 106" stroke-dashoffset="0" stroke-linecap="round"/>
+                <circle cx="40" cy="40" r="28" fill="none" stroke="#FFE566" stroke-width="14"
+                  stroke-dasharray="35 141" stroke-dashoffset="-70" stroke-linecap="round"/>
+                <circle cx="40" cy="40" r="28" fill="none" stroke="#A5D6A7" stroke-width="14"
+                  stroke-dasharray="25 151" stroke-dashoffset="-105" stroke-linecap="round"/>
+              </svg>
+              <div class="donut-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#6C63FF"></div>Reel — 40%</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#FFE566"></div>Carrossel — 30%</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#A5D6A7"></div>Stories — 20%</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#EDE9FF"></div>Post — 10%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Paleta de cores fixa ── -->
+<div class="palette-strip">
+  <div class="palette-title">Design Tokens</div>
+  <div class="palette-row">
+    <div class="swatch" style="background:#FEFBF5" data-hex="#FEFBF5" title="bg-app"></div>
+    <div class="swatch" style="background:#FFFFFF" data-hex="#FFFFFF" title="bg-card"></div>
+    <div class="swatch" style="background:#EEEAFF" data-hex="#EEEAFF" title="bg-sidebar"></div>
+    <div class="swatch" style="background:#1A1A2E" data-hex="#1A1A2E" title="header"></div>
+    <div class="swatch" style="background:#6C63FF" data-hex="#6C63FF" title="primary"></div>
+    <div class="swatch" style="background:#EDE9FF" data-hex="#EDE9FF" title="primary-light"></div>
+    <div class="swatch" style="background:#FFE566" data-hex="#FFE566" title="accent-yellow"></div>
+    <div class="swatch" style="background:#E9EDC9" data-hex="#E9EDC9" title="accent-green"></div>
+    <div class="swatch" style="background:#2D2A4E" data-hex="#2D2A4E" title="text-main"></div>
+    <div class="swatch" style="background:#8B89A8" data-hex="#8B89A8" title="text-sub"></div>
+  </div>
+  <div style="font-size:10px; color: var(--text-sub); line-height:1.5">
+    Radius: 16px card · 12px input · 8px btn<br>
+    Sombra: rgba(108,99,255,0.08)
+  </div>
+</div>
+
+</body>
+</html>

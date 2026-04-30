@@ -8,8 +8,14 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App.jsx'
 
 const theme = createTheme({
-  primaryColor: 'violet',
+  primaryColor: 'brand',
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  colors: {
+    brand: [
+      '#f0eff7', '#dddbe8', '#c4c1d6', '#a9a5c2', '#8e89ae',
+      '#736e9b', '#625d88', '#514c72', '#3e3a53', '#2b283a',
+    ],
+  },
   components: {
     Select: {
       defaultProps: { checkIconPosition: 'right' },

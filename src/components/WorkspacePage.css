@@ -4,7 +4,7 @@
 
 .ws-page {
   min-height: 100vh;
-  background: #F9F9FC;
+  background: #FEF6EB;
   display: flex;
   flex-direction: column;
   font-family: 'Inter', sans-serif;
@@ -13,7 +13,7 @@
 
 /* ── Header ── */
 .ws-header {
-  background: #1A1A2E;
+  background: #3e3a53;
   color: #fff;
   padding: 0 32px;
   height: 64px;
@@ -37,11 +37,11 @@
 .ws-brand {
   font-size: 1.3rem;
   font-weight: 800;
-  color: #6C63FF;
+  color: #fffdf5;
   letter-spacing: -0.5px;
   white-space: nowrap;
 }
-.ws-brand span { color: #FF6B6B; }
+.ws-brand span { color: rgba(255,253,245,0.5); }
 
 .ws-header-divider {
   width: 1px;
@@ -107,7 +107,7 @@
 .ws-section-title {
   font-size: 22px;
   font-weight: 800;
-  color: #1A1A2E;
+  color: #2a2536;
   margin-bottom: 4px;
   letter-spacing: -0.3px;
 }
@@ -116,8 +116,8 @@
   color: #6B6B80;
 }
 .ws-add-btn {
-  background: #6C63FF;
-  color: #fff;
+  background: #3e3a53;
+  color: #fffdf5;
   border: none;
   border-radius: 8px;
   padding: 10px 20px;
@@ -129,7 +129,7 @@
   white-space: nowrap;
 }
 .ws-add-btn:hover {
-  background: #5A52E0;
+  background: #2b283a;
   transform: translateY(-1px);
 }
 
@@ -145,8 +145,8 @@
 .ws-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #E8E8F0;
-  border-top-color: #6C63FF;
+  border: 2px solid #EDE7DC;
+  border-top-color: #3e3a53;
   border-radius: 50%;
   animation: ws-spin 0.7s linear infinite;
 }
@@ -161,7 +161,7 @@
   font-size: 15px;
   background: #fff;
   border-radius: 14px;
-  border: 1.5px dashed #E8E8F0;
+  border: 1.5px dashed #EDE7DC;
 }
 
 /* ── Client Grid ── */
@@ -174,23 +174,23 @@
 /* ── Client Card ── */
 .ws-card {
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(26,26,46,0.07), 0 4px 12px rgba(26,26,46,0.05);
-  border: 1.5px solid #E8E8F0;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(62,58,83,0.06);
+  border: 1.5px solid #EDE7DC;
   cursor: pointer;
   text-align: left;
   padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
   position: relative;
   font-family: 'Inter', sans-serif;
 }
 .ws-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(108,99,255,0.13);
-  border-color: rgba(108,99,255,0.3);
+  transform: translateY(-3px);
+  border-color: #C8B9A4;
+  box-shadow: 0 4px 16px rgba(62,58,83,0.1);
 }
 .ws-card-accent {
   height: 5px;
@@ -217,13 +217,13 @@
 .ws-card-name {
   font-size: 13px;
   font-weight: 800;
-  color: #1A1A2E;
+  color: #2a2536;
   line-height: 1.3;
   word-break: break-word;
 }
 .ws-card-handle {
   font-size: 12px;
-  color: #6C63FF;
+  color: #6b6480;
   margin-top: 2px;
   font-weight: 500;
 }
@@ -248,7 +248,7 @@
 
 /* ── Add Card ── */
 .ws-card-add {
-  border: 2px dashed #E8E8F0;
+  border: 2px dashed #EDE7DC;
   background: transparent;
   align-items: center;
   justify-content: center;
@@ -259,8 +259,8 @@
   transition: border-color 0.18s, background 0.18s, transform 0.18s;
 }
 .ws-card-add:hover {
-  border-color: #6C63FF;
-  background: #EEF0FF;
+  border-color: #3e3a53;
+  background: #F2EDE6;
   transform: translateY(-4px);
 }
 .ws-card-add-icon {
@@ -270,7 +270,7 @@
   line-height: 1;
   transition: color 0.15s;
 }
-.ws-card-add:hover .ws-card-add-icon { color: #6C63FF; }
+.ws-card-add:hover .ws-card-add-icon { color: #3e3a53; }
 .ws-card-add-label {
   font-size: 13px;
   font-weight: 600;
@@ -278,26 +278,26 @@
   text-align: center;
   transition: color 0.15s;
 }
-.ws-card-add:hover .ws-card-add-label { color: #6C63FF; }
+.ws-card-add:hover .ws-card-add-label { color: #3e3a53; }
 
 /* ── Link button on card ── */
 .ws-card-link-row { padding: 0 14px 14px; }
 .ws-link-btn {
   width: 100%;
   background: transparent;
-  border: 1.5px solid rgba(108,99,255,0.25);
+  border: 1.5px solid rgba(62,58,83,0.2);
   border-radius: 8px;
   padding: 7px 0;
   font-size: 12px;
   font-weight: 700;
-  color: #6C63FF;
+  color: #3e3a53;
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   transition: background 0.15s, border-color 0.15s;
 }
 .ws-link-btn:hover:not(:disabled) {
-  background: rgba(108,99,255,0.08);
-  border-color: #6C63FF;
+  background: rgba(62,58,83,0.06);
+  border-color: #3e3a53;
 }
 .ws-link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -372,7 +372,7 @@
   transition: border-color 0.15s;
   font-family: 'Inter', sans-serif;
 }
-.ws-field input:focus { border-color: #6C63FF; }
+.ws-field input:focus { border-color: #3e3a53; }
 .ws-req { color: #FF6B6B; }
 
 .ws-modal-row { display: flex; gap: 12px; align-items: flex-start; }
@@ -391,8 +391,8 @@
   align-items: center;
   justify-content: center;
 }
-.ws-emoji-btn:hover { background: #EEF0FF; transform: scale(1.1); }
-.ws-emoji-btn.selected { border-color: #6C63FF; background: #EEF0FF; }
+.ws-emoji-btn:hover { background: #F2EDE6; transform: scale(1.1); }
+.ws-emoji-btn.selected { border-color: #3e3a53; background: #F2EDE6; }
 
 .ws-palette { display: flex; gap: 10px; flex-wrap: wrap; }
 .ws-color-dot {
@@ -405,7 +405,7 @@
   outline: none;
 }
 .ws-color-dot:hover { transform: scale(1.15); }
-.ws-color-dot.selected { border-color: #fff; outline: 2px solid #1A1A2E; transform: scale(1.15); }
+.ws-color-dot.selected { border-color: #fff; outline: 2px solid #3e3a53; transform: scale(1.15); }
 
 .ws-preview {
   background: #F9F9FC;
@@ -507,8 +507,8 @@
 }
 .ws-link-copy-btn {
   white-space: nowrap;
-  background: #6C63FF;
-  color: #fff;
+  background: #3e3a53;
+  color: #fffdf5;
   border: none;
   border-radius: 8px;
   padding: 9px 16px;
@@ -521,10 +521,10 @@
 .ws-link-copy-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 .ws-link-copy-btn--ghost {
   background: transparent;
-  color: #6C63FF;
-  border: 1.5px solid rgba(108,99,255,0.3);
+  color: #3e3a53;
+  border: 1.5px solid rgba(62,58,83,0.3);
 }
-.ws-link-copy-btn--ghost:hover { background: rgba(108,99,255,0.08); border-color: #6C63FF; opacity: 1; }
+.ws-link-copy-btn--ghost:hover { background: rgba(62,58,83,0.06); border-color: #3e3a53; opacity: 1; }
 .ws-link-token-row { display: flex; gap: 8px; align-items: center; }
 .ws-link-token {
   flex: 1;
@@ -541,9 +541,9 @@
 
 /* Role badge */
 .role-badge {
-  background: rgba(108,99,255,0.15);
-  color: #6C63FF;
-  border: 1px solid rgba(108,99,255,0.3);
+  background: rgba(62,58,83,0.1);
+  color: #fffdf5;
+  border: 1px solid rgba(255,253,245,0.2);
   border-radius: 20px;
   padding: 4px 12px;
   font-size: 12px;

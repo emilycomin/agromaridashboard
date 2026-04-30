@@ -91,11 +91,11 @@ export default function AppHeader({
             )}
             styles={{
               input: {
-                background: 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff',
+                background: 'rgba(255,253,245,0.1)',
+                border: '1px solid rgba(255,253,245,0.18)',
+                color: '#fffdf5',
               },
-              section: { color: 'rgba(255,255,255,0.6)' },
+              section: { color: 'rgba(255,253,245,0.55)' },
             }}
           />
 
@@ -113,7 +113,7 @@ export default function AppHeader({
                   >
                     <div
                       className="app-search-item-avatar"
-                      style={{ background: `${c.color ?? '#6C63FF'}22`, border: `1.5px solid ${c.color ?? '#6C63FF'}44` }}
+                      style={{ background: `${c.color ?? '#3e3a53'}22`, border: `1.5px solid ${c.color ?? '#3e3a53'}44` }}
                     >
                       {c.emoji ?? '🏢'}
                     </div>

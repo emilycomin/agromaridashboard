@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { loadClients, persistClient, createAccessToken } from '../services/db';
+import { loadClients, persistClient, getOrCreateClientToken } from '../services/db';
 import AppHeader from './AppHeader';
 import './WorkspacePage.css';
 
@@ -17,12 +17,6 @@ const ROLE_INFO = {
 
 const EMPTY_FORM = { name: '', handle: '', emoji: '🏢', color: PALETTE[1], description: '', phone: '' };
 
-function generateToken() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const arr = new Uint8Array(12);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => chars[b % chars.length]).join('');
-}
 
 export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, onLogout, onSwitchAccount }) {
   const [clients,    setClients]    = useState([]);
@@ -42,7 +36,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
 
   /* ── Carrega clientes do Firestore ── */
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) { setLoading(false); return; }
     loadClients(uid, email)
       .then(setClients)
       .catch(console.error)
@@ -75,12 +69,11 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
   const closeModal = () => { setShowModal(false); setForm(EMPTY_FORM); };
 
   /* ── Gera link de acesso para cliente ── */
-  const handleGenerateLink = async (e, client) => {
+  const handleGenerateLink = async (e, client, forceNew = false) => {
     e.stopPropagation();
     setGenerating(true);
     try {
-      const token = generateToken();
-      await createAccessToken(client.id, token, uid);
+      const token = await getOrCreateClientToken(client.id, uid, forceNew);
       const url = `${window.location.origin}/?token=${token}`;
       setLinkModal({ client, token, url });
     } catch (err) {
@@ -361,7 +354,7 @@ export default function WorkspacePage({ userRole, firebaseUser, onSelectClient, 
                 <button
                   className="ws-btn-submit"
                   style={{ background: '#6C63FF' }}
-                  onClick={(e) => handleGenerateLink(e, linkModal.client)}
+                  onClick={(e) => handleGenerateLink(e, linkModal.client, true)}
                   disabled={generating}
                 >
                   {generating ? 'Gerando…' : '🔄 Gerar novo link'}

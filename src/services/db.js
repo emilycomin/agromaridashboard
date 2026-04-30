@@ -192,11 +192,14 @@ export async function lookupToken(token) {
 /**
  * Retorna o token de acesso existente do cliente ou gera um novo, armazenando-o
  * no documento do cliente para reutilização futura.
+ * @param {boolean} forceNew - Se true, sempre gera um token novo (ex: "Gerar novo link")
  */
-export async function getOrCreateClientToken(clientId, ownerUid) {
-  const clientSnap = await getDoc(doc(db, CLIENTS_COL, String(clientId)));
-  if (clientSnap.exists() && clientSnap.data().latestToken) {
-    return clientSnap.data().latestToken;
+export async function getOrCreateClientToken(clientId, ownerUid, forceNew = false) {
+  if (!forceNew) {
+    const clientSnap = await getDoc(doc(db, CLIENTS_COL, String(clientId)));
+    if (clientSnap.exists() && clientSnap.data().latestToken) {
+      return clientSnap.data().latestToken;
+    }
   }
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const arr = new Uint8Array(12);

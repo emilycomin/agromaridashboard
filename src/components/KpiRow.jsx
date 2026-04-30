@@ -22,7 +22,7 @@ function CircularProgress({ pct }) {
         startAngle: -135,
         endAngle:    135,
         track: {
-          background: '#E8F5E9',
+          background: '#EDE7DC',
           strokeWidth: '100%',
         },
         dataLabels: {
@@ -31,7 +31,7 @@ function CircularProgress({ pct }) {
             offsetY:   6,
             fontSize:  '22px',
             fontWeight: 800,
-            color:     '#2E7D32',
+            color:     '#3e3a53',
             formatter: (v) => `${Math.round(v)}%`,
           },
         },
@@ -41,10 +41,10 @@ function CircularProgress({ pct }) {
     fill: {
       type: 'gradient',
       gradient: {
-        shade:            'dark',
+        shade:            'light',
         type:             'horizontal',
-        shadeIntensity:   0.4,
-        gradientToColors: ['#66BB6A'],
+        shadeIntensity:   0.3,
+        gradientToColors: ['#514c72'],
         inverseColors:    false,
         opacityFrom:      1,
         opacityTo:        1,
@@ -52,7 +52,7 @@ function CircularProgress({ pct }) {
       },
     },
     stroke: { lineCap: 'round' },
-    colors: ['#2E7D32'],
+    colors: ['#3e3a53'],
   };
 
   return (
