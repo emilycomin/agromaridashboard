@@ -210,7 +210,7 @@ export default function AuthPage({ onSelectRole, onBack, resetOobCode = null, on
       {/* ── Painel esquerdo ── */}
       <div className="auth-left">
         <div className="auth-left-inner">
-          <div className="auth-brand">Flow<span>ly</span></div>
+          <div className="auth-brand">Content<span>Flow</span></div>
           <h2 className="auth-left-title">
             Gerencie conteúdo.<br />Encante clientes.
           </h2>
@@ -231,7 +231,7 @@ export default function AuthPage({ onSelectRole, onBack, resetOobCode = null, on
         <div className="auth-card">
 
           {/* Logo mobile */}
-          <div className="auth-mobile-brand">Flow<span>ly</span></div>
+          <div className="auth-mobile-brand">Content<span>Flow</span></div>
 
           {/* ──────────── LOGIN ──────────── */}
           {view === 'login' && (
@@ -474,7 +474,7 @@ export default function AuthPage({ onSelectRole, onBack, resetOobCode = null, on
           {view === 'reset' && (
             <>
               <div className="auth-reset-icon-wrap">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
