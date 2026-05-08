@@ -1,18 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-/* ── Variáveis (mesmas da LandingPage) ─────────────────────────────────────── */
+/* ── Variáveis ContentFlow ──────────────────────────────────────────────────── */
 .auth-page {
-  --primary:       #6C63FF;
-  --primary-dark:  #5A52E0;
-  --primary-light: #EEF0FF;
-  --accent:        #FF6B6B;
+  --primary:       #4338CA;
+  --primary-dark:  #3730A3;
+  --primary-light: #EEF2FF;
+  --accent:        #A3E635;
   --accent2:       #43C59E;
-  --dark:          #1A1A2E;
-  --dark2:         #2D2B55;
-  --text:          #2D2D3F;
-  --text-muted:    #6B6B80;
-  --border:        #E8E8F0;
-  --bg-light:      #F9F9FC;
+  --dark:          #1E1B4B;
+  --dark2:         #312E81;
+  --text:          #0F172A;
+  --text-muted:    #64748B;
+  --border:        #E2E8F0;
+  --bg-light:      #F8FAFC;
   --white:         #FFFFFF;
 
   font-family: 'Inter', sans-serif;
@@ -23,7 +23,7 @@
 /* ── Painel esquerdo (gradiente) ────────────────────────────────────────────── */
 .auth-left {
   flex: 0 0 42%;
-  background: linear-gradient(145deg, var(--dark) 0%, var(--dark2) 55%, var(--primary) 100%);
+  background: linear-gradient(145deg, #1E1B4B 0%, #312E81 55%, #4338CA 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -68,7 +68,7 @@
   letter-spacing: -1px;
   margin-bottom: 40px;
 }
-.auth-brand span { color: var(--accent); }
+.auth-brand span { color: #A3E635; }
 
 .auth-left-title {
   font-size: 2rem;
@@ -139,7 +139,7 @@
   margin-bottom: 28px;
   text-align: center;
 }
-.auth-mobile-brand span { color: var(--accent); }
+.auth-mobile-brand span { color: #A3E635; }
 
 /* ── Títulos e subtítulos ──────────────────────────────────────────────────────── */
 .auth-title {

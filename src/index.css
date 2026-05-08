@@ -1,24 +1,24 @@
 :root {
-  --text: #5c5567;
-  --text-h: #2a2536;
-  --bg: #FEF6EB;
-  --border: #EDE7DC;
-  --code-bg: #f4f3ec;
-  --accent: #3e3a53;
-  --accent-bg: rgba(62, 58, 83, 0.07);
-  --accent-border: rgba(62, 58, 83, 0.25);
-  --social-bg: rgba(254, 246, 235, 0.6);
+  --text: #475569;
+  --text-h: #0F172A;
+  --bg: #F8FAFC;
+  --border: #E2E8F0;
+  --code-bg: #F1F5F9;
+  --accent: #4338CA;
+  --accent-bg: rgba(67, 56, 202, 0.07);
+  --accent-border: rgba(67, 56, 202, 0.25);
+  --social-bg: rgba(238, 242, 255, 0.6);
   --shadow:
-    rgba(62, 58, 83, 0.07) 0 1px 4px, rgba(62, 58, 83, 0.04) 0 4px 12px;
+    rgba(15, 23, 42, 0.06) 0 1px 4px, rgba(15, 23, 42, 0.04) 0 4px 12px;
 
-  --header-bg:     #3e3a53;
-  --header-fg:     #fffdf5;
-  --sidebar-bg:    #F0E6D6;
-  --sidebar-active-bg: #FEF6EB;
-  --sidebar-active-fg: #3e3a53;
+  --header-bg:     #4338CA;
+  --header-fg:     #ffffff;
+  --sidebar-bg:    #4338CA;
+  --sidebar-active-bg: #EEF2FF;
+  --sidebar-active-fg: #4338CA;
   --card-bg:       #FFFFFF;
-  --card-border:   #EDE7DC;
-  --card-shadow:   0 1px 4px rgba(62,58,83,0.06), 0 4px 12px rgba(62,58,83,0.04);
+  --card-border:   #E2E8F0;
+  --card-shadow:   0 1px 4px rgba(15,23,42,0.06), 0 4px 12px rgba(15,23,42,0.04);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;

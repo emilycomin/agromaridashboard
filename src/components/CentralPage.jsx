@@ -240,7 +240,7 @@ function NotificacaoWhatsApp({ client, uid, onClientUpdate, onArchiveClient, onD
   const [sent,       setSent]       = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
-  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no Flowly. Acesse seu painel para revisar.`;
+  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse seu painel para revisar.`;
 
   const handleSavePhone = async () => {
     if (!phone.trim()) return;

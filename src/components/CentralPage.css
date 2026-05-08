@@ -63,12 +63,12 @@
 
 .central-sidebar-item:hover {
   background: #F0EFFE;
-  color: #6C63FF;
+  color: #4338CA;
 }
 
 .central-sidebar-item.active {
-  background: #EEF0FF;
-  color: #6C63FF;
+  background: #EEF2FF;
+  color: #4338CA;
   font-weight: 600;
 }
 
@@ -79,7 +79,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: #6C63FF;
+  background: #4338CA;
   border-radius: 0 3px 3px 0;
 }
 
@@ -150,7 +150,7 @@
 }
 
 .central-field input:focus {
-  border-color: #6C63FF;
+  border-color: #4338CA;
   background: #fff;
 }
 
@@ -195,8 +195,8 @@
 
 .central-emoji-btn:hover,
 .central-emoji-btn.active {
-  border-color: #6C63FF;
-  background: #EEF0FF;
+  border-color: #4338CA;
+  background: #EEF2FF;
 }
 
 /* Paleta de cores */
@@ -276,12 +276,12 @@
 }
 
 .central-phone-input:focus {
-  border-color: #6C63FF;
+  border-color: #4338CA;
 }
 
 .central-btn-save-phone {
   padding: 8px 18px;
-  background: #6C63FF;
+  background: #4338CA;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -329,7 +329,7 @@
   transition: border-color 0.15s;
 }
 
-.central-btn-edit-phone:hover { border-color: #6C63FF; color: #6C63FF; }
+.central-btn-edit-phone:hover { border-color: #4338CA; color: #4338CA; }
 
 /* Preview da mensagem */
 .central-message-preview {

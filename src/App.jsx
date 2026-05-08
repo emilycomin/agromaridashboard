@@ -128,11 +128,11 @@ export default function App() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           minHeight: '100vh', fontFamily: 'Inter, sans-serif',
-          color: '#6C63FF', fontSize: '16px', gap: '12px',
+          color: '#4338CA', fontSize: '16px', gap: '12px',
         }}>
           <div style={{
             width: 20, height: 20, borderRadius: '50%',
-            border: '2px solid #EEF0FF', borderTopColor: '#6C63FF',
+            border: '2px solid #EEF2FF', borderTopColor: '#4338CA',
             animation: 'app-spin 0.7s linear infinite',
           }} />
           Carregando…

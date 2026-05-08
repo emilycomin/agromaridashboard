@@ -5,7 +5,7 @@ export default function LandingPage({ onLogin }) {
     <div className="lp-root">
       {/* NAVBAR */}
       <nav className="lp-nav">
-        <div className="lp-nav-logo">Flow<span>ly</span></div>
+        <div className="lp-nav-logo">Content<span>Flow</span></div>
         <ul className="lp-nav-links">
           <li><a href="#funcionalidades">Funcionalidades</a></li>
           <li><a href="#analytics">Analytics</a></li>
@@ -65,7 +65,7 @@ export default function LandingPage({ onLogin }) {
                       <div className="lp-post-card-meta">
                         <span className="lp-post-card-date">16 mai</span>
                         <div className="lp-avatar-stack">
-                          <div className="lp-avatar" style={{background:'#6C63FF'}}>A</div>
+                          <div className="lp-avatar" style={{background:'#4338CA'}}>A</div>
                           <div className="lp-avatar" style={{background:'#43C59E'}}>M</div>
                         </div>
                       </div>
@@ -90,7 +90,7 @@ export default function LandingPage({ onLogin }) {
                         <span className="lp-post-card-date">14 mai</span>
                         <div className="lp-avatar-stack">
                           <div className="lp-avatar" style={{background:'#FFB347'}}>R</div>
-                          <div className="lp-avatar" style={{background:'#6C63FF'}}>A</div>
+                          <div className="lp-avatar" style={{background:'#4338CA'}}>A</div>
                         </div>
                       </div>
                     </div>
@@ -144,7 +144,7 @@ export default function LandingPage({ onLogin }) {
           <div className="lp-pillars-header">
             <div className="lp-section-tag">Sua superplataforma de marketing</div>
             <h2 className="lp-section-title">Tudo que sua agência precisa,<br/>em um só lugar</h2>
-            <p className="lp-section-desc">Esqueça os 10 apps abertos ao mesmo tempo. Com a Flowly, sua equipe tem o que precisa — do planejamento à entrega.</p>
+            <p className="lp-section-desc">Esqueça os 10 apps abertos ao mesmo tempo. Com a ContentFlow, sua equipe tem o que precisa — do planejamento à entrega.</p>
           </div>
           <div className="lp-pillars-grid">
             <div className="lp-pillar-card">
@@ -191,7 +191,7 @@ export default function LandingPage({ onLogin }) {
             <div>
               <div className="lp-section-tag">Analytics & Relatórios</div>
               <h2 className="lp-section-title">Dados que convencem.<br/>Relatórios que impressionam.</h2>
-              <p className="lp-section-desc">Chega de montar relatório manual toda semana. Com a Flowly você exporta um PDF da sua marca em segundos.</p>
+              <p className="lp-section-desc">Chega de montar relatório manual toda semana. Com a ContentFlow você exporta um PDF da sua marca em segundos.</p>
               <div className="lp-feature-items">
                 <div className="lp-feature-item">
                   <div className="lp-feature-item-icon">🔮</div>
@@ -241,18 +241,18 @@ export default function LandingPage({ onLogin }) {
               <div className="lp-chart-area">
                 <div className="lp-chart-label">Engajamento por dia</div>
                 <div className="lp-bar-chart">
-                  <div className="lp-bar" style={{height:'40%',background:'#EEF0FF'}}></div>
-                  <div className="lp-bar" style={{height:'55%',background:'#EEF0FF'}}></div>
-                  <div className="lp-bar" style={{height:'50%',background:'#EEF0FF'}}></div>
-                  <div className="lp-bar" style={{height:'70%',background:'#6C63FF'}}></div>
-                  <div className="lp-bar" style={{height:'60%',background:'#EEF0FF'}}></div>
+                  <div className="lp-bar" style={{height:'40%',background:'#EEF2FF'}}></div>
+                  <div className="lp-bar" style={{height:'55%',background:'#EEF2FF'}}></div>
+                  <div className="lp-bar" style={{height:'50%',background:'#EEF2FF'}}></div>
+                  <div className="lp-bar" style={{height:'70%',background:'#4338CA'}}></div>
+                  <div className="lp-bar" style={{height:'60%',background:'#EEF2FF'}}></div>
                   <div className="lp-bar" style={{height:'80%',background:'#9B6EFF'}}></div>
-                  <div className="lp-bar" style={{height:'100%',background:'#6C63FF'}}></div>
-                  <div className="lp-bar" style={{height:'75%',background:'#EEF0FF'}}></div>
-                  <div className="lp-bar" style={{height:'65%',background:'#EEF0FF'}}></div>
+                  <div className="lp-bar" style={{height:'100%',background:'#4338CA'}}></div>
+                  <div className="lp-bar" style={{height:'75%',background:'#EEF2FF'}}></div>
+                  <div className="lp-bar" style={{height:'65%',background:'#EEF2FF'}}></div>
                   <div className="lp-bar" style={{height:'90%',background:'#9B6EFF'}}></div>
-                  <div className="lp-bar" style={{height:'85%',background:'#EEF0FF'}}></div>
-                  <div className="lp-bar" style={{height:'95%',background:'#6C63FF'}}></div>
+                  <div className="lp-bar" style={{height:'85%',background:'#EEF2FF'}}></div>
+                  <div className="lp-bar" style={{height:'95%',background:'#4338CA'}}></div>
                 </div>
               </div>
               <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
@@ -282,9 +282,9 @@ export default function LandingPage({ onLogin }) {
               </div>
               <div className="lp-client-mockup-body">
                 <div className="lp-client-row">
-                  <div className="lp-client-avatar" style={{background:'#6C63FF'}}>AM</div>
+                  <div className="lp-client-avatar" style={{background:'#4338CA'}}>AM</div>
                   <div className="lp-client-info">
-                    <div className="lp-client-name">Ana Martins <span style={{fontSize:'0.65rem',color:'#6C63FF',fontWeight:700,background:'#EEF0FF',padding:'1px 6px',borderRadius:'4px',marginLeft:'4px'}}>Designer</span></div>
+                    <div className="lp-client-name">Ana Martins <span style={{fontSize:'0.65rem',color:'#4338CA',fontWeight:700,background:'#EEF2FF',padding:'1px 6px',borderRadius:'4px',marginLeft:'4px'}}>Designer</span></div>
                     <div className="lp-client-sub">Criar arte stories · Prazo: hoje</div>
                   </div>
                   <span className="lp-client-status lp-status-review">Em andamento</span>
@@ -313,7 +313,7 @@ export default function LandingPage({ onLogin }) {
                   </div>
                   <span className="lp-client-status lp-status-review">Em andamento</span>
                 </div>
-                <div style={{textAlign:'center',padding:'12px',fontSize:'0.8rem',color:'#6C63FF',fontWeight:600,cursor:'pointer'}}>Ver todas as tarefas →</div>
+                <div style={{textAlign:'center',padding:'12px',fontSize:'0.8rem',color:'#4338CA',fontWeight:600,cursor:'pointer'}}>Ver todas as tarefas →</div>
               </div>
             </div>
             <div>
@@ -353,7 +353,7 @@ export default function LandingPage({ onLogin }) {
         <div className="lp-stats-grid">
           <div className="lp-stats-left">
             <h2>Agências com plataforma integrada crescem mais rápido.</h2>
-            <p>Sem uma plataforma integrada, sua equipe perde tempo demais em tarefas operacionais. Com a Flowly, você foca no que importa: resultado pro cliente.</p>
+            <p>Sem uma plataforma integrada, sua equipe perde tempo demais em tarefas operacionais. Com a ContentFlow, você foca no que importa: resultado pro cliente.</p>
           </div>
           <div className="lp-stats-numbers">
             <div className="lp-stat-number-box">
@@ -379,7 +379,7 @@ export default function LandingPage({ onLogin }) {
       {/* CTA FINAL */}
       <div className="lp-cta-wrap" id="planos">
         <div style={{maxWidth:'600px',margin:'0 auto'}}>
-          <h2>Comece a usar a Flowly hoje mesmo</h2>
+          <h2>Comece a usar a ContentFlow hoje mesmo</h2>
           <p>14 dias grátis. Sem cartão de crédito. Configure em menos de 5 minutos.</p>
           <form className="lp-cta-form" onSubmit={(e) => e.preventDefault()}>
             <input type="email" placeholder="Seu e-mail profissional"/>
@@ -394,7 +394,7 @@ export default function LandingPage({ onLogin }) {
         <div className="lp-footer-inner">
           <div className="lp-footer-top">
             <div className="lp-footer-brand">
-              <span className="lp-footer-brand-name">Flow<span>ly</span></span>
+              <span className="lp-footer-brand-name">Content<span>Flow</span></span>
               <p>A plataforma completa para agências de marketing que querem crescer com organização.</p>
             </div>
             <div className="lp-footer-col">
@@ -425,7 +425,7 @@ export default function LandingPage({ onLogin }) {
             </div>
           </div>
           <div className="lp-footer-bottom">
-            <span>© 2025 Flowly. Todos os direitos reservados.</span>
+            <span>© 2025 ContentFlow. Todos os direitos reservados.</span>
             <span>Feito com ♥ para agências brasileiras</span>
           </div>
         </div>

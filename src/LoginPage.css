@@ -2,7 +2,7 @@
 
 .login-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1A1A2E 0%, #2D2B55 60%, #6C63FF 100%);
+  background: linear-gradient(135deg, #1A1A2E 0%, #2D2B55 60%, #4338CA 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -27,7 +27,7 @@
 .login-logo-icon {
   font-size: 2rem;
   font-weight: 900;
-  color: #6C63FF;
+  color: #4338CA;
   letter-spacing: -1px;
   font-family: 'Inter', sans-serif;
 }
@@ -72,7 +72,7 @@
 }
 
 .login-google-btn:hover:not(:disabled) {
-  border-color: #6C63FF;
+  border-color: #4338CA;
   background: #F9F9FC;
   box-shadow: 0 4px 16px rgba(108, 99, 255, 0.12);
   transform: translateY(-1px);
@@ -87,8 +87,8 @@
 .login-spinner {
   width: 20px;
   height: 20px;
-  border: 2.5px solid #EEF0FF;
-  border-top-color: #6C63FF;
+  border: 2.5px solid #EEF2FF;
+  border-top-color: #4338CA;
   border-radius: 50%;
   animation: login-spin 0.8s linear infinite;
 }
@@ -114,5 +114,5 @@
 }
 
 .login-back:hover {
-  color: #6C63FF;
+  color: #4338CA;
 }

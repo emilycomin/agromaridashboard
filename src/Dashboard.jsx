@@ -1,8 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { arrayMove } from '@dnd-kit/sortable';
 import { INITIAL_POSTS, CURRENT_YEAR, MONTH_NAMES, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
-import { subscribePosts, persistPost, removePost, loadSettings, persistSettings, getOrCreateClientToken, persistClient, removeClient, setClientArchived } from './services/db';
-import AppHeader from './components/AppHeader';
+import { subscribePosts, persistPost, removePost, loadSettings, persistSettings, getOrCreateClientToken, persistClient } from './services/db';
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
 import CalendarCard from './components/CalendarCard';
@@ -371,10 +369,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
       ? monthPosts
       : monthPosts.filter((p) => p.format === tableFilter || (p.tags ?? []).includes(tableFilter));
 
-    if (sortConfig.key === 'manual') {
-      return [...filtered].sort((a, b) => (a.sortOrder ?? 999999) - (b.sortOrder ?? 999999));
-    }
-
     return [...filtered].sort((a, b) => {
       const av = sortConfig.key === 'tags' ? (a.tags?.[0] ?? '') : (a[sortConfig.key] ?? '');
       const bv = sortConfig.key === 'tags' ? (b.tags?.[0] ?? '') : (b[sortConfig.key] ?? '');
@@ -387,32 +381,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
     key,
     direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
   }));
-
-  const handleMovePost = (postId, newDate) => {
-    const post = posts.find((p) => p.id === postId);
-    if (!post || post.date === newDate) return;
-    const updated = { ...post, date: newDate };
-    setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
-    persistPost(clientId, updated).catch(console.error);
-    stampLastUpdated();
-  };
-
-  const handleReorderPosts = (activeId, overId) => {
-    const activeIdx = filteredAndSortedPosts.findIndex((p) => p.id === activeId);
-    const overIdx   = filteredAndSortedPosts.findIndex((p) => p.id === overId);
-    if (activeIdx === -1 || overIdx === -1) return;
-
-    const reordered = arrayMove(filteredAndSortedPosts, activeIdx, overIdx);
-    const updates   = reordered.map((p, i) => ({ ...p, sortOrder: i }));
-
-    setPosts((prev) => {
-      const map = new Map(updates.map((p) => [p.id, p]));
-      return prev.map((p) => map.has(p.id) ? map.get(p.id) : p);
-    });
-
-    setSortConfig({ key: 'manual', direction: 'asc' });
-    updates.forEach((p) => persistPost(clientId, p).catch(console.error));
-  };
 
   // ─── GRÁFICOS ────────────────────────────────────────────────────────────────
   const pillarChartData = useMemo(() => {
@@ -471,68 +439,109 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const clientTitle = `${clientMeta.emoji ?? '🐾'} ${clientMeta.name ?? 'AGROMARI PETSHOP'}`;
   const clientSubtitle = clientMeta.handle ?? '@agro.mari';
 
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
   return (
     <OptionsContext.Provider value={optionsValue}>
     <PostsContext.Provider value={postsValue}>
-    <div style={{ display: 'flex', height: '100vh', width: '100%', flexDirection: 'column', overflow: 'hidden' }}>
-      <AppHeader
-        title={clientTitle}
-        subtitle={clientSubtitle}
-        firebaseUser={firebaseUser}
-        onLogout={onLogout}
-        onSwitchAccount={onSwitchAccount}
-        clients={clients}
-        onSelectClient={onSelectClient}
-        onBack={onBack}
-        userRole={userRole}
-      />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {!isCliente && (
-          <aside className="db-sidebar">
-            {/* Marca */}
-            <div className="db-sidebar-brand">
-              <span style={{ fontSize: 20, fontWeight: 800, color: '#3e3a53' }}>Fl</span>
-              <span className="db-sidebar-brand-name">owly</span>
-            </div>
+    <div className="db-page">
 
-            {/* Navegação */}
-            <button
-              className={`db-nav-item ${activeMenuTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('dashboard')}
-            >
-              <span className="db-nav-icon">🏠</span>
+      {/* ── Sidebar ── */}
+      {!isCliente && (
+        <aside className="db-sidebar">
+          {/* Brand */}
+          <div className="db-sidebar-brand">
+            <div className="db-sidebar-logo-icon">⚡</div>
+            <div>
+              <div className="db-sidebar-logo-text">ContentFlow</div>
+              <div className="db-sidebar-logo-role">SOCIAL MANAGER</div>
+            </div>
+          </div>
+
+          {/* Client badge */}
+          <div className="db-sidebar-client">
+            <div className="db-sidebar-client-avatar" style={{ background: clientMeta.color ?? '#4F46E5' }}>
+              {clientMeta.emoji ?? '🐾'}
+            </div>
+            <div className="db-sidebar-client-info">
+              <div className="db-sidebar-client-name">{clientMeta.name ?? 'Cliente'}</div>
+              <div className="db-sidebar-client-handle">{clientMeta.handle ?? ''}</div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div className="db-sidebar-section-label">MENU</div>
+          <nav className="db-sidebar-nav">
+            <button className={`db-nav-item${activeMenuTab === 'dashboard' ? ' active' : ''}`} onClick={() => setActiveMenuTab('dashboard')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
               <span className="db-nav-label">Dashboard</span>
+              {activeMenuTab === 'dashboard' && <span className="db-nav-active-dot" />}
             </button>
-            <button
-              className={`db-nav-item ${activeMenuTab === 'calendario' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('calendario')}
-            >
-              <span className="db-nav-icon">📅</span>
+            <button className={`db-nav-item${activeMenuTab === 'calendario' ? ' active' : ''}`} onClick={() => setActiveMenuTab('calendario')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
               <span className="db-nav-label">Calendário</span>
+              {activeMenuTab === 'calendario' && <span className="db-nav-active-dot" />}
             </button>
-            <button
-              className={`db-nav-item ${activeMenuTab === 'cliente' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('cliente')}
-            >
-              <span className="db-nav-icon">👤</span>
+            <button className={`db-nav-item${activeMenuTab === 'cliente' ? ' active' : ''}`} onClick={() => setActiveMenuTab('cliente')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
               <span className="db-nav-label">Cliente</span>
+              {activeMenuTab === 'cliente' && <span className="db-nav-active-dot" />}
             </button>
-            <button className="db-nav-item nav-disabled" disabled>
-              <span className="db-nav-icon">⚙️</span>
-              <span className="db-nav-label">Conta</span>
-            </button>
+          </nav>
 
-            {/* Rodapé */}
-            <div className="db-sidebar-spacer" />
-            <div className="db-sidebar-footer">
-              <button className="db-nav-item" onClick={onLogout} style={{ color: '#c45a5a' }}>
-                <span className="db-nav-icon">🚪</span>
-                <span className="db-nav-label">Sair</span>
+          {/* Footer */}
+          <div className="db-sidebar-footer">
+            {onBack && (
+              <button className="db-sidebar-back" onClick={onBack}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Todos os clientes
               </button>
+            )}
+            <div className="db-sidebar-user">
+              <div className="db-sidebar-user-avatar">
+                {(firebaseUser?.displayName ?? 'U').split(/\s+/).slice(0,2).map(w => w[0]?.toUpperCase() ?? '').join('')}
+              </div>
+              <div className="db-sidebar-user-info">
+                <div className="db-sidebar-user-name">{firebaseUser?.displayName ?? 'Usuário'}</div>
+                <div className="db-sidebar-user-email">{firebaseUser?.email ?? ''}</div>
+              </div>
             </div>
-          </aside>
-        )}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+            <button className="db-sidebar-logout" onClick={onLogout}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              Sair
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* ── Main ── */}
+      <div className="db-main">
+
+        {/* Header */}
+        <header className="db-header">
+          <div className="db-header-left">
+            {isCliente && onBack && (
+              <button className="db-header-back" onClick={onBack}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            )}
+            <div className="db-header-client-avatar" style={{ background: clientMeta.color ?? '#4F46E5' }}>
+              {clientMeta.emoji ?? '🐾'}
+            </div>
+            <div>
+              <h1 className="db-header-title">{clientMeta.name ?? 'Cliente'}</h1>
+              <p className="db-header-sub">{clientMeta.handle ?? ''}{clientMeta.handle && ' · '}{todayLabel}</p>
+            </div>
+          </div>
+          <div className="db-header-right">
+            {!isCliente && (
+              <button className="db-header-btn-primary" onClick={() => openNewPost()}>+ Novo Post</button>
+            )}
+          </div>
+        </header>
+
+        <div className="db-content">
         {dbError && (
           <div className="db-error-banner">
             ⚠️ {dbError}
@@ -569,7 +578,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                     <div className="cliente-card-sub">Envie o link de aprovação diretamente ao cliente</div>
                   </div>
                 </div>
-                <MenuWhatsAppNotif client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} onBack={onBack} />
+                <MenuWhatsAppNotif client={clientMeta} uid={firebaseUser?.uid} onUpdate={onSelectClient} />
               </div>
             </div>
           </div>
@@ -653,7 +662,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
               }}
               onPostClick={setSelectedPost}
               onNewPost={isCliente ? null : (date) => openNewPost(date)}
-              onMovePost={isCliente ? null : handleMovePost}
             />
 
             {/* Lista de posts do mês */}
@@ -673,7 +681,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                   const stKey  = { 'Planejado': 'planejado', 'Em Produção': 'producao', 'Agendado': 'agendado', 'Publicado': 'publicado', 'Aguardando Aprovação': 'aguardando' }[post.status] ?? 'planejado';
                   return (
                     <div key={post.id} className="dash-post-row" onClick={() => setSelectedPost(post)}>
-                      <div className="dash-post-dot" style={{ background: clientMeta?.color ?? '#3e3a53' }} />
+                      <div className="dash-post-dot" style={{ background: clientMeta?.color ?? '#4338CA' }} />
                       <div className="dash-post-info">
                         <div className="dash-post-title">{post.title}</div>
                         <div className="dash-post-meta">
@@ -699,7 +707,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
               tableFilter={tableFilter}
               onFilterChange={setTableFilter}
               onSort={handleSort}
-              onReorder={handleReorderPosts}
               onPostClick={setSelectedPost}
               onDeletePost={handleDeletePost}
               onAddPost={openNewPost}
@@ -716,7 +723,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                 if (clientMeta?.phone) {
                   const token = await getOrCreateClientToken(clientId, firebaseUser?.uid);
                   const approvalUrl = `${window.location.origin}/?token=${token}`;
-                  const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                  const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse: ${approvalUrl}`;
                   setWhatsappModal({ url: `https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}` });
                 }
               }}
@@ -733,7 +740,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
             posts={posts}
             onPostClick={setSelectedPost}
             onNewPost={(date) => openNewPost(date)}
-            onMovePost={handleMovePost}
             currentMonth={calendarMonth}
             googleAccessToken={googleAccessToken}
             onMonthChange={(m) => {
@@ -837,7 +843,7 @@ function MenuAlterarInfo({ client, uid, onUpdate }) {
           <span>Sugestões</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
             {EMOJI_SUGGESTIONS.map((em) => (
-              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#3e3a53' : '#EDE7DC'}`, borderRadius: 8, background: form.emoji === em ? '#F2EDE6' : '#FAFAF8', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
+              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#4338CA' : '#E2E8F0'}`, borderRadius: 8, background: form.emoji === em ? '#EEF2FF' : '#F8FAFC', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
                 {em}
               </button>
             ))}
@@ -859,15 +865,14 @@ function MenuAlterarInfo({ client, uid, onUpdate }) {
   );
 }
 
-function MenuWhatsAppNotif({ client, uid, onUpdate, onBack }) {
+function MenuWhatsAppNotif({ client, uid, onUpdate }) {
   const [phone, setPhone] = useState(client?.phone ?? '');
   const [editPhone, setEditPhone] = useState(!client?.phone);
   const [savingPhone, setSavingPhone] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
 
-  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no Flowly. Acesse seu painel para revisar.`;
+  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse seu painel para revisar.`;
 
   const handleSavePhone = async () => {
     if (!phone.trim()) return;
@@ -893,12 +898,12 @@ function MenuWhatsAppNotif({ client, uid, onUpdate, onBack }) {
 
   return (
     <div className="dashboard-menu-whatsapp">
-      <div style={{ background: '#FAFAF8', border: '1.5px solid #EDE7DC', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+      <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#3A3A5A', marginBottom: 8 }}>Número do cliente</div>
         {editPhone ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #E0E0EE', borderRadius: 8, fontSize: 14, fontFamily: "'Inter', sans-serif" }} />
-            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#3e3a53', color: '#fffdf5', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
+            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#4338CA', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
               {savingPhone ? 'Salvando…' : 'Salvar'}
             </button>
             {client?.phone && (
@@ -926,68 +931,6 @@ function MenuWhatsAppNotif({ client, uid, onUpdate, onBack }) {
         {sending ? 'Abrindo…' : sent ? '✓ WhatsApp aberto!' : '💬 Enviar pelo WhatsApp'}
       </button>
       {!phone.trim() && !editPhone && <p style={{ marginTop: 12, fontSize: 13, color: '#E65100' }}>Nenhum número cadastrado. Adicione o número acima.</p>}
-
-      {/* ── Zona de perigo ── */}
-      <div style={{ marginTop: 36, border: '1.5px solid #FFCDD2', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 20px', background: '#FFF5F5', borderBottom: '1px solid #FFCDD2' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#C62828', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Zona de perigo</div>
-          <div style={{ fontSize: 12, color: '#9E9E9E', marginTop: 2 }}>Ações que afetam o acesso e os dados do cliente.</div>
-        </div>
-
-        {/* Arquivar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 20px', borderBottom: '1px solid #F5F5F5' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#2D2D3F' }}>{client?.archived ? 'Restaurar cliente' : 'Arquivar cliente'}</div>
-            <div style={{ fontSize: 12, color: '#9E9E9E', marginTop: 2 }}>{client?.archived ? 'Reativa o cliente na área de trabalho.' : 'Oculta o cliente sem apagar os dados.'}</div>
-          </div>
-          <button
-            onClick={async () => {
-              const next = !client?.archived;
-              await setClientArchived(client.id, next).catch(console.error);
-              onUpdate({ ...client, archived: next });
-              onBack?.();
-            }}
-            style={{ whiteSpace: 'nowrap', padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: 'transparent', border: `1.5px solid ${client?.archived ? '#A5D6A7' : '#D0C9BE'}`, color: client?.archived ? '#2E7D32' : '#6B6B80', transition: 'all 0.15s' }}
-          >
-            {client?.archived ? '📂 Restaurar' : '📁 Arquivar'}
-          </button>
-        </div>
-
-        {/* Excluir */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 20px', background: '#FFFAFB' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#2D2D3F' }}>Excluir cliente</div>
-            <div style={{ fontSize: 12, color: '#9E9E9E', marginTop: 2 }}>Remove permanentemente o cliente e todos os dados.</div>
-          </div>
-          {confirmDel ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#C62828', whiteSpace: 'nowrap' }}>Tem certeza?</span>
-              <button
-                onClick={async () => {
-                  await removeClient(client.id).catch(console.error);
-                  onBack?.();
-                }}
-                style={{ padding: '6px 14px', background: '#C62828', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-              >
-                Sim, excluir
-              </button>
-              <button
-                onClick={() => setConfirmDel(false)}
-                style={{ padding: '6px 12px', background: 'transparent', border: '1.5px solid #D0C9BE', color: '#6B6B80', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDel(true)}
-              style={{ whiteSpace: 'nowrap', padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: 'transparent', border: '1.5px solid #EF9A9A', color: '#C62828' }}
-            >
-              🗑 Excluir
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
