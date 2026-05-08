@@ -681,7 +681,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                   const stKey  = { 'Planejado': 'planejado', 'Em Produção': 'producao', 'Agendado': 'agendado', 'Publicado': 'publicado', 'Aguardando Aprovação': 'aguardando' }[post.status] ?? 'planejado';
                   return (
                     <div key={post.id} className="dash-post-row" onClick={() => setSelectedPost(post)}>
-                      <div className="dash-post-dot" style={{ background: clientMeta?.color ?? '#3e3a53' }} />
+                      <div className="dash-post-dot" style={{ background: clientMeta?.color ?? '#4338CA' }} />
                       <div className="dash-post-info">
                         <div className="dash-post-title">{post.title}</div>
                         <div className="dash-post-meta">
@@ -723,7 +723,7 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
                 if (clientMeta?.phone) {
                   const token = await getOrCreateClientToken(clientId, firebaseUser?.uid);
                   const approvalUrl = `${window.location.origin}/?token=${token}`;
-                  const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                  const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse: ${approvalUrl}`;
                   setWhatsappModal({ url: `https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}` });
                 }
               }}
@@ -843,7 +843,7 @@ function MenuAlterarInfo({ client, uid, onUpdate }) {
           <span>Sugestões</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
             {EMOJI_SUGGESTIONS.map((em) => (
-              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#3e3a53' : '#EDE7DC'}`, borderRadius: 8, background: form.emoji === em ? '#F2EDE6' : '#FAFAF8', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
+              <button key={em} type="button" style={{ width: 36, height: 36, border: `1.5px solid ${form.emoji === em ? '#4338CA' : '#E2E8F0'}`, borderRadius: 8, background: form.emoji === em ? '#EEF2FF' : '#F8FAFC', fontSize: 18, cursor: 'pointer' }} onClick={() => setForm((f) => ({ ...f, emoji: em }))}>
                 {em}
               </button>
             ))}
@@ -872,7 +872,7 @@ function MenuWhatsAppNotif({ client, uid, onUpdate }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no Flowly. Acesse seu painel para revisar.`;
+  const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse seu painel para revisar.`;
 
   const handleSavePhone = async () => {
     if (!phone.trim()) return;
@@ -898,12 +898,12 @@ function MenuWhatsAppNotif({ client, uid, onUpdate }) {
 
   return (
     <div className="dashboard-menu-whatsapp">
-      <div style={{ background: '#FAFAF8', border: '1.5px solid #EDE7DC', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+      <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#3A3A5A', marginBottom: 8 }}>Número do cliente</div>
         {editPhone ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #E0E0EE', borderRadius: 8, fontSize: 14, fontFamily: "'Inter', sans-serif" }} />
-            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#3e3a53', color: '#fffdf5', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
+            <button onClick={handleSavePhone} disabled={savingPhone || !phone.trim()} style={{ padding: '8px 18px', background: '#4338CA', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: savingPhone || !phone.trim() ? 0.5 : 1 }}>
               {savingPhone ? 'Salvando…' : 'Salvar'}
             </button>
             {client?.phone && (

@@ -31,7 +31,7 @@ function CircularProgress({ pct }) {
             offsetY:   6,
             fontSize:  '22px',
             fontWeight: 800,
-            color:     '#3e3a53',
+            color:     '#4338CA',
             formatter: (v) => `${Math.round(v)}%`,
           },
         },
@@ -52,7 +52,7 @@ function CircularProgress({ pct }) {
       },
     },
     stroke: { lineCap: 'round' },
-    colors: ['#3e3a53'],
+    colors: ['#4338CA'],
   };
 
   return (

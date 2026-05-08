@@ -548,7 +548,7 @@ export default function PostModal({ post, onClose, readOnly = false }) {
                         if (clientMeta?.phone) {
                           const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
                           const approvalUrl = `${window.location.origin}/?token=${token}`;
-                          const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no Flowly. Acesse: ${approvalUrl}`;
+                          const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse: ${approvalUrl}`;
                           setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
                         }
                       }}
@@ -622,7 +622,7 @@ export default function PostModal({ post, onClose, readOnly = false }) {
                   <span className="client-info-chip-label">Etiquetas</span>
                   <div className="chip-group">
                     {(form.tags ?? []).map((tag) => {
-                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#3e3a53' };
+                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#4338CA' };
                       return (
                         <span
                           key={tag}
@@ -721,7 +721,7 @@ export default function PostModal({ post, onClose, readOnly = false }) {
                 ) : (
                   <div className="chip-group chip-group-tags">
                     {availableTags.map((tag) => {
-                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#3e3a53' };
+                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#4338CA' };
                       const isChecked = (form.tags ?? []).includes(tag);
                       return (
                         <Tag.CheckableTag

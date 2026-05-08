@@ -130,7 +130,7 @@ export default function UserMenu({ user, onLogout }) {
                 disabled={uploading}
                 style={{
                   position: 'absolute', bottom: 0, right: 0,
-                  background: '#6C63FF', border: 'none', borderRadius: '50%',
+                  background: '#4338CA', border: 'none', borderRadius: '50%',
                   width: 26, height: 26, cursor: 'pointer', color: '#fff',
                   fontSize: 13, display: 'flex', alignItems: 'center',
                   justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
