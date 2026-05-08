@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 .app-header {
-  background: #3e3a53;
+  background: #4338CA;
   font-size: 16px;
   color: #fffdf5;
   height: 68px;
@@ -141,7 +141,7 @@
   font-family: 'Inter', sans-serif;
 }
 .app-search-item:last-child { border-bottom: none; }
-.app-search-item:hover { background: #FEF6EB; }
+.app-search-item:hover { background: #EEF2FF; }
 
 .app-search-item-avatar {
   width: 42px;
@@ -177,7 +177,7 @@
   flex-shrink: 0;
   transition: color 0.12s;
 }
-.app-search-item:hover .app-search-item-arrow { color: #3e3a53; }
+.app-search-item:hover .app-search-item-arrow { color: #4338CA; }
 
 /* ── Direita ── */
 .app-header-right {
