@@ -123,6 +123,15 @@ export async function removeClient(clientId) {
   await deleteDoc(doc(db, CLIENTS_COL, String(clientId)));
 }
 
+/**
+ * Arquiva ou desarquiva um cliente (archived: true/false).
+ * @param {string} clientId
+ * @param {boolean} archived
+ */
+export async function setClientArchived(clientId, archived) {
+  await setDoc(doc(db, CLIENTS_COL, String(clientId)), { archived }, { merge: true });
+}
+
 // ── POSTS ────────────────────────────────────────────────────────────────────
 
 export function subscribePosts(clientId, onUpdate, onError) {
@@ -132,6 +141,11 @@ export function subscribePosts(clientId, onUpdate, onError) {
     (snap) => onUpdate(snap.docs.map((d) => d.data())),
     (err)  => onError?.(err),
   );
+}
+
+export async function getClientPostsOnce(clientId) {
+  const snap = await getDocs(postsCol(clientId));
+  return snap.docs.map((d) => d.data());
 }
 
 export async function persistPost(clientId, post) {

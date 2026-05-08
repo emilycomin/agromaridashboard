@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AppHeader from './AppHeader';
-import { persistClient, getOrCreateClientToken } from '../services/db';
+import { persistClient, getOrCreateClientToken, removeClient, setClientArchived } from '../services/db';
 import './CentralPage.css';
 
 const PALETTE = [
@@ -29,6 +29,8 @@ export default function CentralPage({
   onLogout,
   onSwitchAccount,
   onBack,
+  onArchiveClient,
+  onDeleteClient,
 }) {
   const [activeItem, setActiveItem] = useState('alterar-info');
   const uid = firebaseUser?.uid;
@@ -81,6 +83,8 @@ export default function CentralPage({
               client={activeClient}
               uid={uid}
               onClientUpdate={onClientUpdate}
+              onArchiveClient={onArchiveClient}
+              onDeleteClient={onDeleteClient}
             />
           )}
         </main>
@@ -228,12 +232,13 @@ function AlterarInformacoes({ client, uid, onClientUpdate }) {
 }
 
 // ─── Painel: Notificação pelo WhatsApp ───────────────────────────────────────
-function NotificacaoWhatsApp({ client, uid, onClientUpdate }) {
-  const [phone,    setPhone]    = useState(client?.phone ?? '');
-  const [editPhone, setEditPhone] = useState(!client?.phone);
-  const [savingPhone, setSavingPhone] = useState(false);
-  const [sending,  setSending]  = useState(false);
-  const [sent,     setSent]     = useState(false);
+function NotificacaoWhatsApp({ client, uid, onClientUpdate, onArchiveClient, onDeleteClient }) {
+  const [phone,      setPhone]      = useState(client?.phone ?? '');
+  const [editPhone,  setEditPhone]  = useState(!client?.phone);
+  const [savingPhone,setSavingPhone]= useState(false);
+  const [sending,    setSending]    = useState(false);
+  const [sent,       setSent]       = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const approvalText = `Olá ${client?.name ?? 'cliente'}! Você tem posts aguardando sua aprovação no Flowly. Acesse seu painel para revisar.`;
 
@@ -324,6 +329,66 @@ function NotificacaoWhatsApp({ client, uid, onClientUpdate }) {
           Nenhum número cadastrado. Adicione o número acima para enviar notificações.
         </p>
       )}
+
+      {/* ── Zona de perigo ── */}
+      <div className="central-danger-zone">
+        <div className="central-danger-header">
+          <span className="central-danger-title">Zona de perigo</span>
+          <span className="central-danger-desc">Ações irreversíveis ou que afetam o acesso ao cliente.</span>
+        </div>
+
+        <div className="central-danger-actions">
+          {/* Arquivar */}
+          <div className="central-danger-row">
+            <div className="central-danger-row-info">
+              <strong>{client?.archived ? 'Restaurar cliente' : 'Arquivar cliente'}</strong>
+              <span>{client?.archived ? 'Reativa o cliente na área de trabalho.' : 'Oculta o cliente da área de trabalho sem apagar dados.'}</span>
+            </div>
+            <button
+              className={`central-danger-btn central-danger-btn-archive${client?.archived ? ' restore' : ''}`}
+              onClick={async () => {
+                const next = !client?.archived;
+                await setClientArchived(client.id, next).catch(console.error);
+                onArchiveClient?.(client.id, next);
+              }}
+            >
+              {client?.archived ? '📂 Restaurar' : '📁 Arquivar'}
+            </button>
+          </div>
+
+          {/* Excluir */}
+          <div className="central-danger-row central-danger-row-delete">
+            <div className="central-danger-row-info">
+              <strong>Excluir cliente</strong>
+              <span>Remove permanentemente o cliente e todos os dados associados.</span>
+            </div>
+            {confirmDel ? (
+              <div className="central-danger-confirm">
+                <span>Tem certeza?</span>
+                <button
+                  className="central-danger-confirm-yes"
+                  onClick={async () => {
+                    await removeClient(client.id).catch(console.error);
+                    onDeleteClient?.(client.id);
+                  }}
+                >
+                  Sim, excluir
+                </button>
+                <button className="central-danger-confirm-no" onClick={() => setConfirmDel(false)}>
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                className="central-danger-btn central-danger-btn-delete"
+                onClick={() => setConfirmDel(true)}
+              >
+                🗑 Excluir
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

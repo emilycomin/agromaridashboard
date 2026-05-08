@@ -183,6 +183,14 @@ export default function App() {
         onLogout={handleLogout}
         onSwitchAccount={handleSwitchAccount}
         onBack={() => setScreen('app')}
+        onArchiveClient={(clientId, archived) => {
+          setClients((prev) => prev.map((c) => c.id === clientId ? { ...c, archived } : c));
+          setScreen('app');
+        }}
+        onDeleteClient={(clientId) => {
+          setClients((prev) => prev.filter((c) => c.id !== clientId));
+          setScreen('app');
+        }}
       />
     );
   }

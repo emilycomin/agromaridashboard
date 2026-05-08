@@ -1,12 +1,23 @@
 import { useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { PILLAR_COLORS } from '../constants';
 
 const TABLE_FILTERS = ['all', 'Reel', 'Carrossel', 'Post', 'Educação', 'Antes/Depois', 'Humanização'];
 
-// Row background color based on clienteReview status
-// - rejeitado: sempre vermelho (permanente)
-// - aprovado: sempre verde (permanente)
-// - ajustes: amarelo apenas enquanto a notificação não foi lida; depois de lida o SM retrabalha e reenvia
 function reviewRowClass(post) {
   if (post.clienteReview === 'aprovado')                                    return 'row-aprovado';
   if (post.clienteReview === 'rejeitado')                                   return 'row-rejeitado';
@@ -14,7 +25,6 @@ function reviewRowClass(post) {
   return '';
 }
 
-// Status tag CSS class
 const STATUS_CLS_MAP = {
   'Planejado':           'status-planejado',
   'Em Produção':         'status-producao',
@@ -27,9 +37,116 @@ const STATUS_CLS_MAP = {
 };
 function statusCls(post) { return STATUS_CLS_MAP[post.status] ?? ''; }
 
-export default function PostsTable({ posts, tableFilter, onFilterChange, onSort, onPostClick, onDeletePost, onAddPost, onBulkSendApproval, readOnly = false }) {
-  const [selectedIds, setSelectedIds]     = useState(new Set());
-  const [confirmPost, setConfirmPost]     = useState(null); // post awaiting delete confirm
+// ── Sortable row ─────────────────────────────────────────────────────────────
+function SortableRow({ post, readOnly, selectedIds, toggleOne, requestDelete, onPostClick }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: post.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity:    isDragging ? 0.5 : undefined,
+    background: isDragging ? 'var(--drag-row-bg, #f0eef8)' : undefined,
+    zIndex:     isDragging ? 1 : undefined,
+    position:   'relative',
+  };
+
+  const d        = new Date(post.date + 'T12:00:00');
+  const rowClass = reviewRowClass(post);
+  const hasFiles = (post.attachments ?? []).length > 0;
+
+  return (
+    <tr ref={setNodeRef} style={style} className={rowClass}>
+      {!readOnly && (
+        <td className="drag-handle-cell">
+          <span
+            ref={setActivatorNodeRef}
+            {...listeners}
+            {...attributes}
+            className="drag-handle"
+            title="Arrastar para reordenar"
+          >
+            ⠿
+          </span>
+        </td>
+      )}
+      {!readOnly && (
+        <td>
+          <input
+            type="checkbox"
+            className="table-checkbox"
+            checked={selectedIds.has(post.id)}
+            onChange={() => toggleOne(post.id)}
+          />
+        </td>
+      )}
+      <td>
+        <strong>
+          {d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+        </strong>
+      </td>
+      <td className="post-title-cell" onClick={() => onPostClick(post)}>
+        {post.clienteNotification && (
+          <span className="notif-dot" style={{ marginRight: '6px', verticalAlign: 'middle' }} title="Notificação do cliente" />
+        )}
+        {post.title}
+      </td>
+      <td>
+        {hasFiles && (
+          <span
+            className="attach-badge"
+            title={`${post.attachments.length} anexo${post.attachments.length > 1 ? 's' : ''}`}
+          >
+            📎 {post.attachments.length}
+          </span>
+        )}
+      </td>
+      <td><span className="format-tag">{post.format}</span></td>
+      <td>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {(post.tags ?? []).map((tag) => {
+            const pc = PILLAR_COLORS[tag] || PILLAR_COLORS['Especial'];
+            return (
+              <span key={tag} className={`post-pill ${pc.cls}`}>{tag}</span>
+            );
+          })}
+          {(post.tags ?? []).length === 0 && (
+            <span style={{ color: '#9E9E9E', fontSize: '12px', fontStyle: 'italic' }}>—</span>
+          )}
+        </div>
+      </td>
+      <td><span className={`status-tag ${statusCls(post)}`}>{post.status}</span></td>
+      {!readOnly && (
+        <td>
+          <button
+            className="icon-btn"
+            title="Excluir post"
+            onClick={() => requestDelete(post)}
+          >
+            🗑
+          </button>
+        </td>
+      )}
+    </tr>
+  );
+}
+
+// ── PostsTable ───────────────────────────────────────────────────────────────
+export default function PostsTable({ posts, tableFilter, onFilterChange, onSort, onReorder, onPostClick, onDeletePost, onAddPost, onBulkSendApproval, readOnly = false }) {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [confirmPost, setConfirmPost] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   // ── Checkbox helpers ────────────────────────────────────────────────────────
   const allChecked  = posts.length > 0 && posts.every((p) => selectedIds.has(p.id));
@@ -65,6 +182,13 @@ export default function PostsTable({ posts, tableFilter, onFilterChange, onSort,
     if (confirmPost) {
       onDeletePost(confirmPost);
       setConfirmPost(null);
+    }
+  };
+
+  // ── Drag end ─────────────────────────────────────────────────────────────────
+  const handleDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      onReorder?.(active.id, over.id);
     }
   };
 
@@ -106,107 +230,60 @@ export default function PostsTable({ posts, tableFilter, onFilterChange, onSort,
           </div>
 
           <div className="table-wrap">
-            <table className="posts-table">
-              <thead>
-                <tr>
-                  {!readOnly && (
-                    <th style={{ width: '36px' }}>
-                      <input
-                        type="checkbox"
-                        className="table-checkbox"
-                        checked={allChecked}
-                        ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
-                        onChange={toggleAll}
-                        title="Selecionar todos"
-                      />
-                    </th>
-                  )}
-                  <th onClick={() => onSort('date')}>Data ↕</th>
-                  <th onClick={() => onSort('title')}>Título / Ideia ↕</th>
-                  <th style={{ width: '60px' }}>Anexos</th>
-                  <th onClick={() => onSort('format')}>Formato ↕</th>
-                  <th onClick={() => onSort('tags')}>Etiquetas ↕</th>
-                  <th onClick={() => onSort('status')}>Status ↕</th>
-                  {!readOnly && <th></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {posts.map((post) => {
-                  const d        = new Date(post.date + 'T12:00:00');
-                  const rowClass = reviewRowClass(post);
-                  const hasFiles = (post.attachments ?? []).length > 0;
-
-                  return (
-                    <tr key={post.id} className={rowClass}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={posts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                <table className="posts-table">
+                  <thead>
+                    <tr>
+                      {!readOnly && <th className="drag-handle-cell" style={{ width: '32px' }} />}
                       {!readOnly && (
-                        <td>
+                        <th style={{ width: '36px' }}>
                           <input
                             type="checkbox"
                             className="table-checkbox"
-                            checked={selectedIds.has(post.id)}
-                            onChange={() => toggleOne(post.id)}
+                            checked={allChecked}
+                            ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                            onChange={toggleAll}
+                            title="Selecionar todos"
                           />
-                        </td>
+                        </th>
                       )}
-                      <td>
-                        <strong>
-                          {d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                        </strong>
-                      </td>
-                      <td className="post-title-cell" onClick={() => onPostClick(post)}>
-                        {post.clienteNotification && (
-                          <span className="notif-dot" style={{ marginRight: '6px', verticalAlign: 'middle' }} title="Notificação do cliente" />
-                        )}
-                        {post.title}
-                      </td>
-                      <td>
-                        {hasFiles && (
-                          <span
-                            className="attach-badge"
-                            title={`${post.attachments.length} anexo${post.attachments.length > 1 ? 's' : ''}`}
-                          >
-                            📎 {post.attachments.length}
-                          </span>
-                        )}
-                      </td>
-                      <td><span className="format-tag">{post.format}</span></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {(post.tags ?? []).map((tag) => {
-                            const pc = PILLAR_COLORS[tag] || PILLAR_COLORS['Especial'];
-                            return (
-                              <span key={tag} className={`post-pill ${pc.cls}`}>{tag}</span>
-                            );
-                          })}
-                          {(post.tags ?? []).length === 0 && (
-                            <span style={{ color: '#9E9E9E', fontSize: '12px', fontStyle: 'italic' }}>—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td><span className={`status-tag ${statusCls(post)}`}>{post.status}</span></td>
-                      {!readOnly && (
-                        <td>
-                          <button
-                            className="icon-btn"
-                            title="Excluir post"
-                            onClick={() => requestDelete(post)}
-                          >
-                            🗑
-                          </button>
-                        </td>
-                      )}
+                      <th onClick={() => onSort('date')}>Data ↕</th>
+                      <th onClick={() => onSort('title')}>Título / Ideia ↕</th>
+                      <th style={{ width: '60px' }}>Anexos</th>
+                      <th onClick={() => onSort('format')}>Formato ↕</th>
+                      <th onClick={() => onSort('tags')}>Etiquetas ↕</th>
+                      <th onClick={() => onSort('status')}>Status ↕</th>
+                      {!readOnly && <th></th>}
                     </tr>
-                  );
-                })}
-                {posts.length === 0 && (
-                  <tr>
-                    <td colSpan={readOnly ? 6 : 9} style={{ textAlign: 'center', padding: '24px', color: '#9E9E9E', fontStyle: 'italic' }}>
-                      Nenhum post encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {posts.map((post) => (
+                      <SortableRow
+                        key={post.id}
+                        post={post}
+                        readOnly={readOnly}
+                        selectedIds={selectedIds}
+                        toggleOne={toggleOne}
+                        requestDelete={requestDelete}
+                        onPostClick={onPostClick}
+                      />
+                    ))}
+                    {posts.length === 0 && (
+                      <tr>
+                        <td colSpan={readOnly ? 6 : 10} style={{ textAlign: 'center', padding: '24px', color: '#9E9E9E', fontStyle: 'italic' }}>
+                          Nenhum post encontrado.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
       </div>

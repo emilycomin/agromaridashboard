@@ -8,7 +8,8 @@
       "Bash(npm list:*)",
       "mcp__Claude_Preview__preview_start",
       "mcp__e248a6b5-488b-4712-aa55-6971f8485c59__list_calendars",
-      "mcp__e248a6b5-488b-4712-aa55-6971f8485c59__create_event"
+      "mcp__e248a6b5-488b-4712-aa55-6971f8485c59__create_event",
+      "Bash(node scripts/list-clients.mjs)"
     ]
   }
 }

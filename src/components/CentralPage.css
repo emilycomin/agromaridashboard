@@ -378,3 +378,155 @@
   font-size: 13px;
   color: #E65100;
 }
+
+/* ── Zona de perigo ── */
+.central-danger-zone {
+  margin-top: 36px;
+  border: 1.5px solid #FFCDD2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.central-danger-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 20px;
+  background: #FFF5F5;
+  border-bottom: 1px solid #FFCDD2;
+}
+
+.central-danger-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #C62828;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.central-danger-desc {
+  font-size: 12px;
+  color: #9E9E9E;
+}
+
+.central-danger-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.central-danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #F5F5F5;
+}
+.central-danger-row:last-child { border-bottom: none; }
+
+.central-danger-row-delete {
+  background: #FFFAFB;
+}
+
+.central-danger-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.central-danger-row-info strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2D2D3F;
+}
+.central-danger-row-info span {
+  font-size: 12px;
+  color: #9E9E9E;
+}
+
+.central-danger-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.central-danger-btn-archive {
+  background: transparent;
+  border: 1.5px solid #D0C9BE;
+  color: #6B6B80;
+}
+.central-danger-btn-archive:hover {
+  background: #F2EDE6;
+  border-color: #8b7e6e;
+  color: #3e3a53;
+}
+.central-danger-btn-archive.restore {
+  border-color: #A5D6A7;
+  color: #2E7D32;
+}
+.central-danger-btn-archive.restore:hover {
+  background: #E8F5E9;
+}
+
+.central-danger-btn-delete {
+  background: transparent;
+  border: 1.5px solid #EF9A9A;
+  color: #C62828;
+}
+.central-danger-btn-delete:hover {
+  background: #FFEBEE;
+  border-color: #C62828;
+}
+
+.central-danger-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: cdc-fade 0.15s ease;
+  flex-shrink: 0;
+}
+@keyframes cdc-fade { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+
+.central-danger-confirm span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #C62828;
+  white-space: nowrap;
+}
+
+.central-danger-confirm-yes {
+  background: #C62828;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.central-danger-confirm-yes:hover { background: #B71C1C; }
+
+.central-danger-confirm-no {
+  background: transparent;
+  border: 1.5px solid #D0C9BE;
+  color: #6B6B80;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.central-danger-confirm-no:hover { background: #F9F9FC; }
