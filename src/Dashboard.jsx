@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_POSTS, CURRENT_YEAR, MONTH_NAMES, FORMATS, STATUSES, PILLAR_COLORS } from './constants';
 import { subscribePosts, persistPost, removePost, loadSettings, persistSettings, getOrCreateClientToken, persistClient } from './services/db';
-import AppHeader from './components/AppHeader';
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
 import CalendarCard from './components/CalendarCard';
@@ -440,68 +439,109 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const clientTitle = `${clientMeta.emoji ?? '🐾'} ${clientMeta.name ?? 'AGROMARI PETSHOP'}`;
   const clientSubtitle = clientMeta.handle ?? '@agro.mari';
 
+  const today = new Date();
+  const todayLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
   return (
     <OptionsContext.Provider value={optionsValue}>
     <PostsContext.Provider value={postsValue}>
-    <div style={{ display: 'flex', height: '100vh', width: '100%', flexDirection: 'column', overflow: 'hidden' }}>
-      <AppHeader
-        title={clientTitle}
-        subtitle={clientSubtitle}
-        firebaseUser={firebaseUser}
-        onLogout={onLogout}
-        onSwitchAccount={onSwitchAccount}
-        clients={clients}
-        onSelectClient={onSelectClient}
-        onBack={onBack}
-        userRole={userRole}
-      />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {!isCliente && (
-          <aside className="db-sidebar">
-            {/* Marca */}
-            <div className="db-sidebar-brand">
-              <span style={{ fontSize: 20, fontWeight: 800, color: '#3e3a53' }}>Fl</span>
-              <span className="db-sidebar-brand-name">owly</span>
-            </div>
+    <div className="db-page">
 
-            {/* Navegação */}
-            <button
-              className={`db-nav-item ${activeMenuTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('dashboard')}
-            >
-              <span className="db-nav-icon">🏠</span>
+      {/* ── Sidebar ── */}
+      {!isCliente && (
+        <aside className="db-sidebar">
+          {/* Brand */}
+          <div className="db-sidebar-brand">
+            <div className="db-sidebar-logo-icon">⚡</div>
+            <div>
+              <div className="db-sidebar-logo-text">ContentFlow</div>
+              <div className="db-sidebar-logo-role">SOCIAL MANAGER</div>
+            </div>
+          </div>
+
+          {/* Client badge */}
+          <div className="db-sidebar-client">
+            <div className="db-sidebar-client-avatar" style={{ background: clientMeta.color ?? '#4F46E5' }}>
+              {clientMeta.emoji ?? '🐾'}
+            </div>
+            <div className="db-sidebar-client-info">
+              <div className="db-sidebar-client-name">{clientMeta.name ?? 'Cliente'}</div>
+              <div className="db-sidebar-client-handle">{clientMeta.handle ?? ''}</div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div className="db-sidebar-section-label">MENU</div>
+          <nav className="db-sidebar-nav">
+            <button className={`db-nav-item${activeMenuTab === 'dashboard' ? ' active' : ''}`} onClick={() => setActiveMenuTab('dashboard')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
               <span className="db-nav-label">Dashboard</span>
+              {activeMenuTab === 'dashboard' && <span className="db-nav-active-dot" />}
             </button>
-            <button
-              className={`db-nav-item ${activeMenuTab === 'calendario' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('calendario')}
-            >
-              <span className="db-nav-icon">📅</span>
+            <button className={`db-nav-item${activeMenuTab === 'calendario' ? ' active' : ''}`} onClick={() => setActiveMenuTab('calendario')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
               <span className="db-nav-label">Calendário</span>
+              {activeMenuTab === 'calendario' && <span className="db-nav-active-dot" />}
             </button>
-            <button
-              className={`db-nav-item ${activeMenuTab === 'cliente' ? 'active' : ''}`}
-              onClick={() => setActiveMenuTab('cliente')}
-            >
-              <span className="db-nav-icon">👤</span>
+            <button className={`db-nav-item${activeMenuTab === 'cliente' ? ' active' : ''}`} onClick={() => setActiveMenuTab('cliente')}>
+              <span className="db-nav-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
               <span className="db-nav-label">Cliente</span>
+              {activeMenuTab === 'cliente' && <span className="db-nav-active-dot" />}
             </button>
-            <button className="db-nav-item nav-disabled" disabled>
-              <span className="db-nav-icon">⚙️</span>
-              <span className="db-nav-label">Conta</span>
-            </button>
+          </nav>
 
-            {/* Rodapé */}
-            <div className="db-sidebar-spacer" />
-            <div className="db-sidebar-footer">
-              <button className="db-nav-item" onClick={onLogout} style={{ color: '#c45a5a' }}>
-                <span className="db-nav-icon">🚪</span>
-                <span className="db-nav-label">Sair</span>
+          {/* Footer */}
+          <div className="db-sidebar-footer">
+            {onBack && (
+              <button className="db-sidebar-back" onClick={onBack}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Todos os clientes
               </button>
+            )}
+            <div className="db-sidebar-user">
+              <div className="db-sidebar-user-avatar">
+                {(firebaseUser?.displayName ?? 'U').split(/\s+/).slice(0,2).map(w => w[0]?.toUpperCase() ?? '').join('')}
+              </div>
+              <div className="db-sidebar-user-info">
+                <div className="db-sidebar-user-name">{firebaseUser?.displayName ?? 'Usuário'}</div>
+                <div className="db-sidebar-user-email">{firebaseUser?.email ?? ''}</div>
+              </div>
             </div>
-          </aside>
-        )}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+            <button className="db-sidebar-logout" onClick={onLogout}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              Sair
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* ── Main ── */}
+      <div className="db-main">
+
+        {/* Header */}
+        <header className="db-header">
+          <div className="db-header-left">
+            {isCliente && onBack && (
+              <button className="db-header-back" onClick={onBack}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            )}
+            <div className="db-header-client-avatar" style={{ background: clientMeta.color ?? '#4F46E5' }}>
+              {clientMeta.emoji ?? '🐾'}
+            </div>
+            <div>
+              <h1 className="db-header-title">{clientMeta.name ?? 'Cliente'}</h1>
+              <p className="db-header-sub">{clientMeta.handle ?? ''}{clientMeta.handle && ' · '}{todayLabel}</p>
+            </div>
+          </div>
+          <div className="db-header-right">
+            {!isCliente && (
+              <button className="db-header-btn-primary" onClick={() => openNewPost()}>+ Novo Post</button>
+            )}
+          </div>
+        </header>
+
+        <div className="db-content">
         {dbError && (
           <div className="db-error-banner">
             ⚠️ {dbError}
