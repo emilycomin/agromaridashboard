@@ -7,9 +7,9 @@
 }
 
 .lp-root {
-  --primary: #6C63FF;
-  --primary-dark: #5A52E0;
-  --primary-light: #EEF0FF;
+  --primary: #4338CA;
+  --primary-dark: #3730A3;
+  --primary-light: #EEF2FF;
   --accent: #FF6B6B;
   --accent2: #43C59E;
   --accent3: #FFB347;
@@ -47,7 +47,7 @@
   color: var(--primary);
   letter-spacing: -0.5px;
 }
-.lp-nav-logo span { color: var(--accent); }
+.lp-nav-logo span { color: #A3E635; }
 
 .lp-nav-links {
   display: flex;
@@ -478,7 +478,7 @@
 .lp-client-status { font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
 .lp-status-active  { background: #E6FAF5; color: #43C59E; }
 .lp-status-review  { background: #FFF4E6; color: #FFB347; }
-.lp-status-pending { background: #EEF0FF; color: var(--primary); }
+.lp-status-pending { background: #EEF2FF; color: var(--primary); }
 
 /* ─── STATS DARK SECTION ─── */
 .lp-stats-dark { background: var(--dark); padding: 80px 5%; }
@@ -508,7 +508,7 @@
 
 /* ─── CTA SECTION ─── */
 .lp-cta-wrap {
-  background: linear-gradient(135deg, #6C63FF 0%, #9B6EFF 100%);
+  background: linear-gradient(135deg, #4338CA 0%, #6D28D9 100%);
   padding: 80px 5%;
   text-align: center;
 }
@@ -524,7 +524,7 @@
   width: 300px; outline: none;
 }
 .lp-btn-white {
-  padding: 14px 28px; background: white; color: #6C63FF;
+  padding: 14px 28px; background: white; color: #4338CA;
   border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 700;
   cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
 }
@@ -541,7 +541,7 @@
   margin-bottom: 40px;
 }
 .lp-footer-brand-name { font-size: 1.4rem; font-weight: 800; color: white; letter-spacing: -0.5px; display: block; margin-bottom: 12px; }
-.lp-footer-brand-name span { color: #FF6B6B; }
+.lp-footer-brand-name span { color: #A3E635; }
 .lp-footer-brand p { font-size: 0.82rem; line-height: 1.6; color: rgba(255,255,255,0.45); max-width: 200px; }
 
 .lp-footer-col h5 {
