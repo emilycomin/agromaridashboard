@@ -208,6 +208,29 @@ export async function lookupToken(token) {
  * no documento do cliente para reutilização futura.
  * @param {boolean} forceNew - Se true, sempre gera um token novo (ex: "Gerar novo link")
  */
+// ── TAREFAS ──────────────────────────────────────────────────────────────────
+
+function tasksCol(uid) {
+  return collection(db, 'users', uid, 'tasks');
+}
+
+export function subscribeTasks(uid, onData, onError) {
+  const q = query(tasksCol(uid), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => onData(snap.docs.map(d => ({ id: d.id, ...d.data() }))), onError);
+}
+
+export async function persistTask(uid, task) {
+  const id = task.id ?? `task_${Date.now()}`;
+  await setDoc(doc(tasksCol(uid), id), { ...task, id }, { merge: true });
+  return id;
+}
+
+export async function removeTask(uid, taskId) {
+  await deleteDoc(doc(tasksCol(uid), taskId));
+}
+
+// ── TOKENS ───────────────────────────────────────────────────────────────────
+
 export async function getOrCreateClientToken(clientId, ownerUid, forceNew = false) {
   if (!forceNew) {
     const clientSnap = await getDoc(doc(db, CLIENTS_COL, String(clientId)));
