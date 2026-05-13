@@ -4,11 +4,9 @@ import { subscribePosts, persistPost, removePost, loadSettings, persistSettings,
 import MonthSelector from './components/MonthSelector';
 import KpiRow from './components/KpiRow';
 import CalendarCard from './components/CalendarCard';
-import ChartsSection from './components/ChartsSection';
 import PostsTable from './components/PostsTable';
 import PostModal from './components/PostModal';
 import MeetingsWidget from './components/MeetingsWidget';
-import GoogleCalendarWidget from './components/GoogleCalendarWidget';
 import CalendarTab from './components/CalendarTab';
 // Tabs removido — navegação migrada para sidebar customizado
 import { OptionsContext } from './context/OptionsContext';
@@ -68,8 +66,8 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
   const [posts, setPosts]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [dbError, setDbError]           = useState(null);
-  const [calendarMonth, setCalendarMonth] = useState(3);   // mês exibido no calendário
-  const [selectedMonths, setSelectedMonths] = useState([3]); // meses do filtro (multi)
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [selectedMonths, setSelectedMonths] = useState([new Date().getMonth()]);
   const [tableFilter, setTableFilter]   = useState('all');
   const [sortConfig, setSortConfig]     = useState({ key: 'date', direction: 'asc' });
   const [selectedPost, setSelectedPost] = useState(null);
@@ -382,25 +380,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
     direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
   }));
 
-  // ─── GRÁFICOS ────────────────────────────────────────────────────────────────
-  const pillarChartData = useMemo(() => {
-    const counts = {};
-    posts.forEach((p) => (p.tags ?? []).forEach((tag) => { counts[tag] = (counts[tag] || 0) + 1; }));
-    return {
-      labels: Object.keys(counts),
-      datasets: [{ data: Object.values(counts), backgroundColor: ['#BBDEFB','#A5D6A7','#FFE082','#CE93D8','#F48FB1','#80DEEA','#FFCC80'], borderWidth: 2 }],
-    };
-  }, [posts]);
-
-  const formatChartData = useMemo(() => {
-    const counts = {};
-    posts.forEach((p) => { if (p.format) counts[p.format] = (counts[p.format] || 0) + 1; });
-    return {
-      labels: Object.keys(counts),
-      datasets: [{ data: Object.values(counts), backgroundColor: ['#A5D6A7','#BBDEFB','#FFE082','#CE93D8'], borderRadius: 6 }],
-    };
-  }, [posts]);
-
   // ─── LOADING SCREEN ──────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -676,9 +655,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
           {/* KPI cards */}
           <KpiRow posts={monthPosts} selectedMonths={selectedMonths} onPostClick={setSelectedPost} />
 
-          {/* Google Calendar widget */}
-          <GoogleCalendarWidget googleAccessToken={googleAccessToken} />
-
           {/* Calendário + Posts do mês (dois colunas) */}
           <div className="dash-two-col">
             <CalendarCard
@@ -724,9 +700,6 @@ export default function Dashboard({ userRole = 'social-media', clientId = 'agrom
               </div>
             </div>
           </div>
-
-          {/* Gráficos */}
-          <ChartsSection pillarChartData={pillarChartData} formatChartData={formatChartData} />
 
           {/* Tabela completa de posts — somente social media */}
           {!isCliente && (
