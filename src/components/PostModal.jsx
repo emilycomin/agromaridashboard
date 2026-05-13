@@ -1,181 +1,31 @@
 import { useState, useRef, useEffect } from 'react';
-import { TextInput, Textarea } from '@mantine/core';
-import { RichTextEditor, Link } from '@mantine/tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import { DatePicker, Splitter, Carousel, Image, Modal, Tag, ConfigProvider } from 'antd';
-import ptBR from 'antd/locale/pt_BR';
-import dayjs from 'dayjs';
-import 'dayjs/locale/pt-br';
+import { Link, RichTextEditor } from '@mantine/tiptap';
+import { DatePickerInput } from '@mantine/dates';
 import { PILLAR_COLORS } from '../constants';
 import { uploadAttachment, deleteAttachment } from '../services/storage';
 import { getOrCreateClientToken } from '../services/db';
 import { useOptions } from '../context/OptionsContext';
 import { usePosts } from '../context/PostsContext';
+import './PostModal.css';
 
-dayjs.locale('pt-br');
-
-const FORMAT_COLORS = {
-  'Reel':     { bg: '#FFD6E8', color: '#B52060' },
-  'Carrossel':{ bg: '#C8E4FF', color: '#1565C0' },
-  'Post':     { bg: '#D8D6FF', color: '#3D3999' },
-  'Stories':  { bg: '#D4F0C4', color: '#2E7D32' },
-};
-
-const STATUS_COLORS = {
-  'Planejado':            { bg: '#EBEBF0', color: '#4A4A6A' },
-  'Em Produção':          { bg: '#C8E4FF', color: '#1565C0' },
-  'Agendado':             { bg: '#D4F0C4', color: '#2E7D32' },
-  'Publicado':            { bg: '#E9EDC9', color: '#5A6B2A' },
-  'Aguardando Aprovação': { bg: '#FFF3B0', color: '#A07800' },
-  'Aprovado':             { bg: '#D4F0C4', color: '#2E7D32' },
-  'Alterações':           { bg: '#FFD9C2', color: '#C45000' },
-  'Rejeitado':            { bg: '#FFD9C2', color: '#C45000' },
-};
-
-const PRESET_TAG_COLORS = [
-  { bg: '#E3F2FD', color: '#1565C0' },
-  { bg: '#E8F5E9', color: '#1B5E20' },
-  { bg: '#FFF8E1', color: '#E65100' },
-  { bg: '#F3E5F5', color: '#6A1B9A' },
-  { bg: '#FCE4EC', color: '#C2185B' },
-  { bg: '#E0F7FA', color: '#006064' },
-  { bg: '#FFF3E0', color: '#BF360C' },
-  { bg: '#EDE7F6', color: '#4527A0' },
-  { bg: '#F1F8E9', color: '#33691E' },
-  { bg: '#FBE9E7', color: '#BF360C' },
-  { bg: '#E8EAF6', color: '#283593' },
-  { bg: '#FFEEFF', color: '#880E4F' },
-];
-
-// ─── ManageGroup ─────────────────────────────────────────────────────────────
-function ManageGroup({ items, onAdd, onDelete, onRename, tagColors, showColorPicker }) {
-  const [newName,  setNewName]  = useState('');
-  const [newColor, setNewColor] = useState(PRESET_TAG_COLORS[0]);
-  const [renamingIndex, setRenamingIndex] = useState(null);
-  const [renameValue, setRenameValue] = useState('');
-
-  const startRename = (idx) => {
-    setRenamingIndex(idx);
-    setRenameValue(items[idx]);
-  };
-
-  const commitRename = (idx) => {
-    const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== items[idx]) onRename(items[idx], trimmed);
-    setRenamingIndex(null);
-  };
-
-  const handleAdd = () => {
-    const trimmed = newName.trim();
-    if (trimmed && !items.includes(trimmed)) {
-      onAdd(trimmed, showColorPicker ? newColor : undefined);
-      setNewName('');
-    }
-  };
-
-  return (
-    <div className="group-manager">
-      {items.map((item, idx) => {
-        const tc = tagColors?.[item];
-        return (
-          <div key={item} className="manager-row">
-            {renamingIndex === idx ? (
-              <input
-                className="manager-rename-input"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={() => commitRename(idx)}
-                onKeyDown={(e) => { if (e.key === 'Enter') commitRename(idx); if (e.key === 'Escape') setRenamingIndex(null); }}
-                autoFocus
-              />
-            ) : (
-              <span
-                className="manager-item-label"
-                style={tc ? { background: tc.bg, color: tc.color } : {}}
-                onClick={() => startRename(idx)}
-                title="Clique para renomear"
-              >
-                {item}
-              </span>
-            )}
-            <button className="manager-delete" onClick={() => onDelete(item)} title="Excluir">×</button>
-          </div>
-        );
-      })}
-      <div className="manager-add-row">
-        <input
-          className="manager-add-input"
-          placeholder="Nova opção..."
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-        />
-        <button className="manager-add-btn" onClick={handleAdd}>+ Adicionar</button>
-      </div>
-      {showColorPicker && (
-        <div className="manager-color-picker">
-          <span className="manager-color-label">Cor da etiqueta:</span>
-          <div className="manager-color-dots">
-            {PRESET_TAG_COLORS.map((c, i) => (
-              <button
-                key={i}
-                className={`manager-color-dot${newColor === c ? ' selected' : ''}`}
-                style={{ background: c.bg, border: `2.5px solid ${c.color}` }}
-                onClick={() => setNewColor(c)}
-                title={c.color}
-              />
-            ))}
-          </div>
-          {newName && (
-            <span
-              className="manager-color-preview"
-              style={{ background: newColor.bg, color: newColor.color }}
-            >
-              {newName}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
+// YYYY-MM-DD → Date (local noon to avoid timezone shifts)
+function strToDate(s) { return s ? new Date(s + 'T12:00:00') : null; }
+// Date → YYYY-MM-DD
+function dateToStr(d) {
+  if (!d) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ─── Chip inline para formato/status (single-select) ─────────────────────────
-function ChipGroup({ items, value, onChange, colorMap, error }) {
-  return (
-    <div className={`chip-group${error ? ' chip-group-error' : ''}`}>
-      {items.map((item) => {
-        const c = colorMap?.[item];
-        const isSelected = value === item;
-        return (
-          <button
-            key={item}
-            className={`inline-chip${isSelected ? ' inline-chip-selected' : ''}`}
-            style={isSelected && c
-              ? { background: c.bg, color: c.color, borderColor: c.color }
-              : { background: 'transparent', color: '#6B6B80', borderColor: '#D0C9BE' }
-            }
-            onClick={() => onChange(isSelected ? '' : item)}
-          >
-            {item}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── PostModal ────────────────────────────────────────────────────────────────
 export default function PostModal({ post, onClose, readOnly = false }) {
   const {
-    availableTags, addTag: onAddTag, deleteTag: onDeleteTag, renameTag: onRenameTag,
-    tagColors = {},
-    availableFormats, addFormat: onAddFormat, deleteFormat: onDeleteFormat, renameFormat: onRenameFormat,
-    formatColors = {},
-    availableStatuses, addStatus: onAddStatus, deleteStatus: onDeleteStatus, renameStatus: onRenameStatus,
-    statusColors = {},
+    availableTags, tagColors = {},
+    availableFormats,
+    availableStatuses,
+    addTag, deleteTag,
+    addStatus, deleteStatus,
   } = useOptions();
 
   const {
@@ -188,48 +38,47 @@ export default function PostModal({ post, onClose, readOnly = false }) {
     clientMeta = {},
     ownerUid = null,
   } = usePosts();
+
   const isNew = post?.id === null;
 
-  const [form, setForm] = useState(() => post ?? {});
-  const formRef = useRef(form);
+  const [form, setForm]             = useState(() => ({ ...post }));
+  const formRef                     = useRef(form);
+  const fileInputRef                = useRef(null);
+  const [dragOver, setDragOver]     = useState(false);
+  const [errors, setErrors]         = useState({});
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const [whatsappUrl, setWhatsappUrl] = useState(null);
+  const [reviewMode, setReviewMode] = useState(null);
+  const [reviewDraft, setReviewDraft] = useState(post?.clienteNotes ?? '');
+  const [reviewSent, setReviewSent] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [lightbox, setLightbox]       = useState(false);
+  const [editingTags, setEditingTags] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [newStatusName, setNewStatusName] = useState('');
 
+  // ── TipTap editor for caption ───────────────────────────────────────────────
   const editor = useEditor({
     extensions: [StarterKit, Underline, Link],
     content: post?.notes ?? '',
     editable: !readOnly,
-    onBlur: ({ editor: ed }) => {
-      if (readOnly) return;
+    onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML();
-      const newForm = { ...formRef.current, notes: html };
-      formRef.current = newForm;
-      setForm(newForm);
-      if (newForm.id) onSave(newForm);
+      formRef.current = { ...formRef.current, notes: html };
+      setForm((p) => ({ ...p, notes: html }));
+    },
+    onBlur: () => {
+      if (formRef.current.id) onSave(formRef.current);
     },
   });
 
-  const [managingTags, setManagingTags] = useState(false);
-  const [managingFormats, setManagingFormats] = useState(false);
-  const [managingStatuses, setManagingStatuses] = useState(false);
-
-  const [showHistory, setShowHistory] = useState(false);
-  const [whatsappUrl, setWhatsappUrl] = useState(null);
-
-  const [errors, setErrors] = useState({});
-  const fileInputRef  = useRef(null);
-  const carouselRef   = useRef(null);
-
-  const [reviewMode, setReviewMode]   = useState(null);
-  const [reviewDraft, setReviewDraft] = useState(post?.clienteNotes ?? '');
-  const [reviewSent, setReviewSent]   = useState(false);
-
-  const [carouselIdx, setCarouselIdx] = useState(0);
-
+  // Sync review fields from Firestore real-time updates
   useEffect(() => {
     if (!post?.id) return;
     const REVIEW_FIELDS = ['clienteReview', 'clienteNotes', 'clienteNotification', 'enviadoParaAprovacao'];
-    const needsSync = REVIEW_FIELDS.some(
-      (f) => (formRef.current[f] ?? null) !== (post[f] ?? null)
-    );
+    const needsSync = REVIEW_FIELDS.some((f) => (formRef.current[f] ?? null) !== (post[f] ?? null));
     if (!needsSync) return;
     const updated = {
       ...formRef.current,
@@ -240,90 +89,38 @@ export default function PostModal({ post, onClose, readOnly = false }) {
     };
     formRef.current = updated;
     setForm(updated);
-  }, [post?.clienteReview, post?.clienteNotes, post?.clienteNotification, post?.enviadoParaAprovacao]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!editor || editor.isFocused) return;
-    const incoming = post?.notes ?? '';
-    const current  = editor.getHTML();
-    if (incoming !== current) editor.commands.setContent(incoming, false);
-  }, [post?.notes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [post?.clienteReview, post?.clienteNotes, post?.clienteNotification, post?.enviadoParaAprovacao]); // eslint-disable-line
 
   if (!post) return null;
 
-  const fmtTimestamp = (iso) => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      });
-    } catch {
-      return iso;
-    }
-  };
-
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   const saveFields = (updates) => {
     const newForm = { ...formRef.current, ...updates };
     formRef.current = newForm;
     setForm(newForm);
     if (newForm.id) onSave(newForm);
   };
-
   const saveField = (key, value) => saveFields({ [key]: value });
-
-  const handleTitleChange = (e) => {
-    const val = e.target.value;
-    formRef.current = { ...formRef.current, title: val };
-    setForm((prev) => ({ ...prev, title: val }));
-  };
-
-  const handleTitleBlur = () => {
-    const title = formRef.current.title ?? '';
-    if (title.trim()) {
-      if (errors.title) setErrors((prev) => { const e = { ...prev }; delete e.title; return e; });
-      if (formRef.current.id) onSave(formRef.current);
-    } else if (!isNew) {
-      setErrors((prev) => ({ ...prev, title: true }));
-    }
-  };
 
   const toggleTag = (tag) => {
     const current = formRef.current.tags ?? [];
-    const next = current.includes(tag)
-      ? current.filter((t) => t !== tag)
-      : [...current, tag];
+    const next = current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag];
     saveField('tags', next);
   };
 
-  const toggleApproved = () => saveField('approved', !formRef.current.approved);
-
-  const handleFileAdd = async (e) => {
-    const files = Array.from(e.target.files);
-    e.target.value = '';
-
+  const processFiles = async (files) => {
     for (const file of files) {
       const attachId    = Date.now() + Math.random();
       const storagePath = `attachments/${attachId}`;
-
-      const tempAtt = {
-        id: attachId,
-        name: file.name,
-        url: URL.createObjectURL(file),
-        storagePath,
-        uploading: true,
-        error: false,
-      };
+      const tempAtt = { id: attachId, name: file.name, url: URL.createObjectURL(file), storagePath, uploading: true, error: false };
       saveField('attachments', [...(formRef.current.attachments ?? []), tempAtt]);
-
       try {
         const permanentUrl = await uploadAttachment(storagePath, file);
         const updated = (formRef.current.attachments ?? []).map((a) =>
           a.id === attachId ? { ...a, url: permanentUrl, uploading: false } : a
         );
         saveField('attachments', updated);
-      } catch (err) {
-        console.error('Erro no upload da imagem:', err);
+      } catch {
         const updated = (formRef.current.attachments ?? []).map((a) =>
           a.id === attachId ? { ...a, uploading: false, error: true } : a
         );
@@ -332,728 +129,567 @@ export default function PostModal({ post, onClose, readOnly = false }) {
     }
   };
 
+  const handleFileAdd  = (e) => { processFiles(Array.from(e.target.files)); e.target.value = ''; };
+  const handleFileDrop = (e) => { if (readOnly) return; processFiles(Array.from(e.dataTransfer.files)); };
+
   const removeAttachment = (id) => {
     const att = (formRef.current.attachments ?? []).find((a) => a.id === id);
-    if (att?.storagePath && !att.uploading) {
-      deleteAttachment(att.storagePath).catch(console.error);
-    }
-    const newAttachments = formRef.current.attachments.filter((a) => a.id !== id);
-    saveFields({
-      attachments: newAttachments,
-      coverId: formRef.current.coverId === id ? null : formRef.current.coverId,
-    });
+    if (att?.storagePath && !att.uploading) deleteAttachment(att.storagePath).catch(console.error);
+    const newAtts = formRef.current.attachments.filter((a) => a.id !== id);
+    saveFields({ attachments: newAtts, coverId: formRef.current.coverId === id ? null : formRef.current.coverId });
   };
 
-  const toggleCover = (attachId) => {
-    saveField('coverId', formRef.current.coverId === attachId ? null : attachId);
+  const goPrev = () => setCarouselIdx((i) => (i - 1 + attachments.length) % attachments.length);
+  const goNext = () => setCarouselIdx((i) => (i + 1) % attachments.length);
+
+  const triggerSaveSuccess = () => {
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
-  const handleCreate = () => {
+  const handleSaveDraft = () => {
     const f = formRef.current;
-    const newErrors = {};
-    if (!f.title?.trim()) newErrors.title  = true;
-    if (!f.date)          newErrors.date   = true;
-    if (!f.format)        newErrors.format = true;
-    if (!f.status)        newErrors.status = true;
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (!f.title?.trim()) { setErrors({ title: true }); return; }
     setErrors({});
     onSave(f);
+    triggerSaveSuccess();
+    if (isNew) onClose();
   };
 
-  const REVIEW_STATUS = {
-    aprovado:  'Aprovado',
-    ajustes:   'Alterações',
-    rejeitado: 'Rejeitado',
+  const handleSchedule = () => {
+    const f = formRef.current;
+    const newErrors = {};
+    if (!f.title?.trim()) newErrors.title = true;
+    if (!f.date)          newErrors.date  = true;
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    setErrors({});
+    onSave({ ...f, status: 'Agendado' });
+    triggerSaveSuccess();
+    if (isNew) onClose();
   };
 
+  // ── Review (client) ──────────────────────────────────────────────────────────
+  const REVIEW_STATUS = { aprovado: 'Aprovado', ajustes: 'Alterações', rejeitado: 'Rejeitado' };
   const sendReview = (type, notes = '') => {
-    const updated = {
-      ...formRef.current,
-      clienteReview: type,
-      clienteNotes: notes,
-      clienteNotification: true,
-      status: REVIEW_STATUS[type] ?? formRef.current.status,
-    };
+    const updated = { ...formRef.current, clienteReview: type, clienteNotes: notes, clienteNotification: true, status: REVIEW_STATUS[type] ?? formRef.current.status };
     formRef.current = updated;
     setForm(updated);
     onSave(updated);
     setReviewMode(null);
     setReviewSent(true);
-    if (isInApprovalMode && onReviewNext) {
-      setTimeout(() => onReviewNext(), 600);
-    }
-  };
-
-  const handleAprovar = () => sendReview('aprovado');
-
-  const handleConfirmReview = () => {
-    if (!reviewDraft.trim()) return;
-    sendReview(reviewMode, reviewDraft.trim());
+    if (isInApprovalMode && onReviewNext) setTimeout(() => onReviewNext(), 600);
   };
 
   const handleMarkRead = () => {
     if (formRef.current.clienteReview === 'ajustes') {
-      saveFields({
-        clienteNotification: false,
-        clienteReview: null,
-        clienteNotes: '',
-        enviadoParaAprovacao: false,
-        status: 'Em Produção',
-      });
+      saveFields({ clienteNotification: false, clienteReview: null, clienteNotes: '', enviadoParaAprovacao: false, status: 'Em Produção' });
     } else {
       saveFields({ clienteNotification: false });
     }
   };
 
-  const coverAttachment = (form.attachments ?? []).find((a) => a.id === form.coverId);
-  const hasErrors = Object.keys(errors).length > 0;
-
+  // ── Derived ──────────────────────────────────────────────────────────────────
   const attachments    = form.attachments ?? [];
   const hasAttachments = attachments.length > 0;
   const safeIdx        = hasAttachments ? Math.min(carouselIdx, attachments.length - 1) : 0;
   const activeAtt      = hasAttachments ? attachments[safeIdx] : null;
+const captionLen  = editor ? editor.getText().replace(/\n$/, '').length : (form.notes ?? '').replace(/<[^>]*>/g, '').length;
+  const headerTitle = form.title?.trim() || (isNew ? 'Novo Post' : 'Post sem título');
 
   return (
-    <ConfigProvider locale={ptBR}>
-    <Modal
-      open={true}
-      onCancel={onClose}
-      maskClosable={true}
-      width="min(1100px, 95vw)"
-      footer={null}
-      title={null}
-      closeIcon={null}
-      styles={{
-        mask: { backdropFilter: 'blur(10px)', background: 'rgba(26,24,40,0.5)' },
-        body: { padding: 0 },
-        content: { padding: 0, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' },
-      }}
-      className="post-modal-antd"
-    >
+    <div className="pm-backdrop" onClick={onClose}>
+      <div className="pm-modal" onClick={(e) => e.stopPropagation()}>
 
-      {/* ── CABEÇALHO ── */}
-      <div className="popup-header">
-        <TextInput
-          value={form.title ?? ''}
-          onChange={readOnly ? undefined : handleTitleChange}
-          onBlur={readOnly ? undefined : handleTitleBlur}
-          placeholder="Título do post *"
-          autoFocus={isNew && !readOnly}
-          readOnly={readOnly}
-          error={errors.title ? 'Título obrigatório' : null}
-          variant="unstyled"
-          classNames={{ input: `popup-title-input${errors.title ? ' input-error' : ''}` }}
-          style={{ flex: 1, minWidth: 0 }}
-        />
-        <button className="popup-close" onClick={onClose} title="Fechar">×</button>
-      </div>
+        {/* ── Header ── */}
+        <div className="pm-header">
+          <div className="pm-title">{headerTitle}</div>
+          <button className="pm-close" onClick={onClose}>✕</button>
+        </div>
 
-      {/* ── CORPO: Splitter esquerda / direita ── */}
-      <Splitter className="popup-splitter-body" style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-      <Splitter.Panel defaultSize="55%" min="38%" className="popup-splitter-left">
-      <div className="popup-main-left">
+        {/* ── Body ── */}
+        <div className="pm-body">
 
-        {/* ── BANNER DE NOTIFICAÇÃO (Social Media) ── */}
-        {!readOnly && form.clienteNotification && (
-          <div className={`review-notification-banner review-banner-${form.clienteReview}`}>
-            <div className="review-banner-content">
-              {form.clienteReview === 'aprovado' && (
-                <>
-                  <span className="review-banner-icon">✅</span>
-                  <div>
-                    <strong>O cliente aprovou este post!</strong>
-                    <p>Conteúdo aprovado pelo cliente.</p>
-                  </div>
-                </>
-              )}
-              {form.clienteReview === 'rejeitado' && (
-                <>
-                  <span className="review-banner-icon">❌</span>
-                  <div>
-                    <strong>O cliente rejeitou este post</strong>
-                    {form.clienteNotes && <p className="review-banner-reason">"{form.clienteNotes}"</p>}
-                  </div>
-                </>
-              )}
-              {form.clienteReview === 'ajustes' && (
-                <>
-                  <span className="review-banner-icon">✏️</span>
-                  <div>
-                    <strong>O cliente pediu ajustes</strong>
-                    {form.clienteNotes && <p className="review-banner-reason">"{form.clienteNotes}"</p>}
-                  </div>
-                </>
-              )}
-            </div>
-            <button className="review-banner-read-btn" onClick={handleMarkRead}>
-              ✓ Marcar como lido
-            </button>
-          </div>
-        )}
+          {/* ── Left: Form ── */}
+          <div className="pm-left">
 
-        <div className="popup-content">
-
-          {/* Data + Aprovação (Social Media) */}
-          {!readOnly && (
-            <div className="popup-section">
-              <div className="field-label">
-                Data {errors.date && <span className="error-inline">⚠ obrigatório</span>}
+            {/* Notification banner (social media) */}
+            {!readOnly && form.clienteNotification && (
+              <div className={`pm-review-banner pm-review-banner--${form.clienteReview}`}>
+                <div className="pm-review-banner-content">
+                  {form.clienteReview === 'aprovado'  && <><span>✅</span><div><strong>Cliente aprovou!</strong></div></>}
+                  {form.clienteReview === 'rejeitado' && <><span>❌</span><div><strong>Cliente rejeitou</strong>{form.clienteNotes && <p>"{form.clienteNotes}"</p>}</div></>}
+                  {form.clienteReview === 'ajustes'   && <><span>✏️</span><div><strong>Ajustes solicitados</strong>{form.clienteNotes && <p>"{form.clienteNotes}"</p>}</div></>}
+                </div>
+                <button className="pm-review-read-btn" onClick={handleMarkRead}>✓ Marcar como lido</button>
               </div>
-              <div className="date-approved-row">
-                <DatePicker
-                  value={form.date ? dayjs(form.date) : null}
-                  onChange={(date) => {
-                    const val = date ? date.format('YYYY-MM-DD') : '';
-                    saveField('date', val);
-                    if (errors.date) setErrors((prev) => { const e = { ...prev }; delete e.date; return e; });
-                  }}
-                  format="DD/MM/YYYY"
-                  placeholder="Selecionar data *"
-                  status={errors.date ? 'error' : ''}
-                  style={{ flex: 'none' }}
-                  popupClassName="date-picker-popup"
-                />
+            )}
 
-                {form.clienteReview === 'aprovado' && (
-                  <span className="send-approval-status send-approval-aprovado">✅ Aprovado pelo cliente</span>
+            {/* Título */}
+            <div className="pm-field">
+              <label className="pm-label">Título do Post {!readOnly && <span className="pm-req">*</span>}</label>
+              <input
+                className={`pm-input${errors.title ? ' pm-input--error' : ''}`}
+                type="text"
+                placeholder="Ex: Lançamento Coleção Verão 2026"
+                value={form.title ?? ''}
+                readOnly={readOnly}
+                autoFocus={isNew && !readOnly}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  formRef.current = { ...formRef.current, title: val };
+                  setForm((p) => ({ ...p, title: val }));
+                  if (errors.title) setErrors((p) => { const e2 = { ...p }; delete e2.title; return e2; });
+                }}
+                onBlur={() => { if (formRef.current.id && formRef.current.title?.trim()) onSave(formRef.current); }}
+              />
+            </div>
+
+            {/* Data + Horário */}
+            <div className="pm-row">
+              <div className="pm-field" style={{ flex: 2 }}>
+                <label className="pm-label">Data de Publicação {!readOnly && <span className="pm-req">*</span>}</label>
+                <DatePickerInput
+                  classNames={{
+                    input: `pm-input pm-datepicker-input${errors.date ? ' pm-input--error' : ''}`,
+                    root: 'pm-datepicker-root',
+                  }}
+                  valueFormat="DD/MM/YYYY"
+                  placeholder="Selecionar data"
+                  value={strToDate(form.date)}
+                  disabled={readOnly}
+                  onChange={(date) => {
+                    saveField('date', dateToStr(date));
+                    if (errors.date) setErrors((p) => { const e2 = { ...p }; delete e2.date; return e2; });
+                  }}
+                  clearable
+                />
+              </div>
+              <div className="pm-field" style={{ flex: 1 }}>
+                <label className="pm-label">Horário</label>
+                <input
+                  className="pm-input"
+                  type="time"
+                  value={form.time ?? '09:00'}
+                  disabled={readOnly}
+                  onChange={(e) => saveField('time', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Formato */}
+            {!readOnly && (
+              <div className="pm-field">
+                <label className="pm-label">Formato</label>
+                <div className="pm-pills">
+                  {availableFormats.map((fmt) => (
+                    <button
+                      key={fmt}
+                      className={`pm-pill${form.format === fmt ? ' pm-pill--active' : ''}`}
+                      onClick={() => saveField('format', form.format === fmt ? '' : fmt)}
+                    >
+                      {form.format === fmt && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      )}
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tipo de Conteúdo (tags) */}
+            {!readOnly && (
+              <div className="pm-field">
+                <div className="pm-label-row">
+                  <label className="pm-label">Tipo de Conteúdo</label>
+                  {!editingTags
+                    ? <button className="pm-edit-toggle" onClick={() => setEditingTags(true)} title="Editar etiquetas">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Editar
+                      </button>
+                    : <button className="pm-edit-toggle pm-edit-toggle--done" onClick={() => { setEditingTags(false); setNewTagName(''); }}>
+                        ✓ Concluir
+                      </button>
+                  }
+                </div>
+                {editingTags ? (
+                  <div className="pm-edit-list">
+                    {availableTags.map((tag) => {
+                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#E8F5E9', color: '#2E7D32' };
+                      return (
+                        <div key={tag} className="pm-edit-item">
+                          <span className="pm-edit-item-dot" style={{ background: tc.color }} />
+                          <span className="pm-edit-item-name">{tag}</span>
+                          <button className="pm-edit-item-del" onClick={() => deleteTag(tag)} title="Remover">✕</button>
+                        </div>
+                      );
+                    })}
+                    <div className="pm-edit-add">
+                      <input
+                        className="pm-edit-add-input"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        placeholder="Nova etiqueta..."
+                        onKeyDown={(e) => { if (e.key === 'Enter' && newTagName.trim()) { addTag(newTagName.trim()); setNewTagName(''); } }}
+                      />
+                      <button
+                        className="pm-edit-add-btn"
+                        disabled={!newTagName.trim()}
+                        onClick={() => { if (newTagName.trim()) { addTag(newTagName.trim()); setNewTagName(''); } }}
+                      >+ Adicionar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pm-pills">
+                    {availableTags.map((tag) => {
+                      const isChecked = (form.tags ?? []).includes(tag);
+                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#E8F5E9', color: '#2E7D32' };
+                      return (
+                        <button
+                          key={tag}
+                          className={`pm-pill${isChecked ? ' pm-pill--tag' : ''}`}
+                          style={isChecked ? { background: tc.bg, color: tc.color, borderColor: tc.color } : {}}
+                          onClick={() => toggleTag(tag)}
+                        >
+                          {isChecked && (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {form.clienteReview === 'rejeitado' && (
-                  <span className="send-approval-status send-approval-rejeitado">❌ Rejeitado pelo cliente</span>
+              </div>
+            )}
+
+            {/* Status */}
+            {!readOnly && (
+              <div className="pm-field">
+                <div className="pm-label-row">
+                  <label className="pm-label">Status</label>
+                  {!editingStatus
+                    ? <button className="pm-edit-toggle" onClick={() => setEditingStatus(true)} title="Editar status">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Editar
+                      </button>
+                    : <button className="pm-edit-toggle pm-edit-toggle--done" onClick={() => { setEditingStatus(false); setNewStatusName(''); }}>
+                        ✓ Concluir
+                      </button>
+                  }
+                </div>
+                {editingStatus ? (
+                  <div className="pm-edit-list">
+                    {availableStatuses.map((s) => (
+                      <div key={s} className="pm-edit-item">
+                        <span className="pm-edit-item-dot pm-edit-item-dot--status" />
+                        <span className="pm-edit-item-name">{s}</span>
+                        <button className="pm-edit-item-del" onClick={() => deleteStatus(s)} title="Remover">✕</button>
+                      </div>
+                    ))}
+                    <div className="pm-edit-add">
+                      <input
+                        className="pm-edit-add-input"
+                        value={newStatusName}
+                        onChange={(e) => setNewStatusName(e.target.value)}
+                        placeholder="Novo status..."
+                        onKeyDown={(e) => { if (e.key === 'Enter' && newStatusName.trim()) { addStatus(newStatusName.trim()); setNewStatusName(''); } }}
+                      />
+                      <button
+                        className="pm-edit-add-btn"
+                        disabled={!newStatusName.trim()}
+                        onClick={() => { if (newStatusName.trim()) { addStatus(newStatusName.trim()); setNewStatusName(''); } }}
+                      >+ Adicionar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pm-radios">
+                    {availableStatuses.slice(0, 8).map((s) => (
+                      <label key={s} className="pm-radio-label">
+                        <input
+                          type="radio"
+                          name="pm-status"
+                          checked={form.status === s}
+                          onChange={() => saveField('status', s)}
+                        />
+                        <span className={`pm-radio-dot${form.status === s ? ' pm-radio-dot--on' : ''}`} />
+                        {s}
+                      </label>
+                    ))}
+                  </div>
                 )}
-                {form.clienteReview === 'ajustes' && (
-                  <span className="send-approval-status send-approval-ajustes">✏️ Ajustes solicitados</span>
-                )}
-                {!form.clienteReview && form.enviadoParaAprovacao && (
-                  <span className="send-approval-status send-approval-aguardando">⏳ Aguardando aprovação</span>
-                )}
+              </div>
+            )}
+
+            {/* Aprovação row (social media) */}
+            {!readOnly && (
+              <div className="pm-approval-row">
+                {form.clienteReview === 'aprovado'  && <span className="pm-chip pm-chip--ok">✅ Aprovado</span>}
+                {form.clienteReview === 'rejeitado' && <span className="pm-chip pm-chip--err">❌ Rejeitado</span>}
+                {form.clienteReview === 'ajustes'   && <span className="pm-chip pm-chip--warn">✏️ Ajustes pedidos</span>}
+                {!form.clienteReview && form.enviadoParaAprovacao && <span className="pm-chip pm-chip--wait">⏳ Aguardando</span>}
                 {(() => {
                   const needsResend = form.clienteReview === 'ajustes' || form.clienteReview === 'rejeitado';
                   const canSend = (!form.clienteReview && !form.enviadoParaAprovacao) || needsResend;
                   if (!canSend) return null;
                   return (
-                    <button
-                      className="btn-send-approval"
-                      onClick={async () => {
-                        saveFields({
-                          enviadoParaAprovacao: true,
-                          status: 'Aguardando Aprovação',
-                          clienteReview: null,
-                          clienteNotes: '',
-                          clienteNotification: false,
-                        });
-                        if (clientMeta?.phone) {
-                          const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
-                          const approvalUrl = `${window.location.origin}/?token=${token}`;
-                          const text = `Olá ${clientMeta.name}! Você tem posts aguardando sua aprovação no ContentFlow. Acesse: ${approvalUrl}`;
-                          setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
-                        }
-                      }}
-                    >
-                      {needsResend ? '🔄 Reenviar para aprovação' : '📤 Mandar para aprovação'}
+                    <button className="pm-send-btn" onClick={async () => {
+                      saveFields({ enviadoParaAprovacao: true, status: 'Aguardando Aprovação', clienteReview: null, clienteNotes: '', clienteNotification: false });
+                      if (clientMeta?.phone) {
+                        const token = await getOrCreateClientToken(clientMeta.id, ownerUid);
+                        const approvalUrl = `${window.location.origin}/?token=${token}`;
+                        const text = `Olá ${clientMeta.name}! Você tem posts aguardando aprovação. Acesse: ${approvalUrl}`;
+                        setWhatsappUrl(`https://wa.me/${clientMeta.phone}?text=${encodeURIComponent(text)}`);
+                      }
+                    }}>
+                      {needsResend ? '🔄 Reenviar' : '📤 Enviar para aprovação'}
                     </button>
                   );
                 })()}
                 {whatsappUrl && (
-                  <a
-                    className="btn-send-approval"
-                    style={{ background: '#25D366', color: '#fff', textDecoration: 'none',
-                             display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6 }}
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setWhatsappUrl(null)}
-                  >
-                    💬 Notificar via WhatsApp
-                  </a>
+                  <a className="pm-whatsapp-btn" href={whatsappUrl} target="_blank" rel="noopener noreferrer" onClick={() => setWhatsappUrl(null)}>💬 WhatsApp</a>
                 )}
+              </div>
+            )}
+
+            {/* Info chips (client view) */}
+            {readOnly && (
+              <div className="pm-client-chips">
+                {form.date && <span className="pm-client-chip">📅 {new Date(form.date + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                {form.format && <span className="pm-client-chip">{form.format}</span>}
+                {form.status && <span className="pm-client-chip">{form.status}</span>}
+                {(form.tags ?? []).map((t) => {
+                  const tc = tagColors[t] ?? PILLAR_COLORS[t] ?? { bg: '#EEF2FF', color: '#4338CA' };
+                  return <span key={t} className="pm-client-chip" style={{ background: tc.bg, color: tc.color }}>{t}</span>;
+                })}
+              </div>
+            )}
+
+            {/* Descrição / Caption com formatação */}
+            <div className="pm-field pm-field--grow">
+              <label className="pm-label">Descrição / Caption</label>
+              <div className="pm-textarea-wrap">
+                <RichTextEditor editor={editor} className="pm-rte">
+                  {!readOnly && (
+                    <RichTextEditor.Toolbar sticky stickyOffset={0} className="pm-rte-toolbar">
+                      <RichTextEditor.ControlsGroup>
+                        <RichTextEditor.Bold />
+                        <RichTextEditor.Italic />
+                        <RichTextEditor.Underline />
+                        <RichTextEditor.Strikethrough />
+                      </RichTextEditor.ControlsGroup>
+                      <RichTextEditor.ControlsGroup>
+                        <RichTextEditor.BulletList />
+                        <RichTextEditor.OrderedList />
+                      </RichTextEditor.ControlsGroup>
+                      <RichTextEditor.ControlsGroup>
+                        <RichTextEditor.Link />
+                        <RichTextEditor.Unlink />
+                      </RichTextEditor.ControlsGroup>
+                      <RichTextEditor.ControlsGroup>
+                        <RichTextEditor.ClearFormatting />
+                      </RichTextEditor.ControlsGroup>
+                    </RichTextEditor.Toolbar>
+                  )}
+                  <RichTextEditor.Content className="pm-rte-content" />
+                </RichTextEditor>
+                <span className="pm-char-count">{captionLen}/2200</span>
               </div>
             </div>
-          )}
-
-          {/* ── INFO ROW (cliente) ── */}
-          {readOnly ? (
-            <div className="popup-section client-info-mantine">
-              {form.date && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Data</span>
-                  <DatePicker
-                    value={form.date ? dayjs(form.date) : null}
-                    format="DD/MM/YYYY"
-                    disabled
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              )}
-
-              {form.format && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Formato</span>
-                  <div className="chip-group">
-                    {(() => { const c = { ...FORMAT_COLORS, ...formatColors }[form.format]; return (
-                      <span className="inline-chip inline-chip-selected"
-                        style={c ? { background: c.bg, color: c.color, borderColor: c.color } : {}}>
-                        {form.format}
-                      </span>
-                    ); })()}
-                  </div>
-                </div>
-              )}
-
-              {form.status && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Status</span>
-                  <div className="chip-group">
-                    {(() => { const c = { ...STATUS_COLORS, ...statusColors }[form.status]; return (
-                      <span className="inline-chip inline-chip-selected"
-                        style={c ? { background: c.bg, color: c.color, borderColor: c.color } : {}}>
-                        {form.status}
-                      </span>
-                    ); })()}
-                  </div>
-                </div>
-              )}
-
-              {(form.tags ?? []).length > 0 && (
-                <div className="client-info-chip">
-                  <span className="client-info-chip-label">Etiquetas</span>
-                  <div className="chip-group">
-                    {(form.tags ?? []).map((tag) => {
-                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#4338CA' };
-                      return (
-                        <span
-                          key={tag}
-                          className="inline-chip inline-chip-selected"
-                          style={{ background: tc.bg, color: tc.color, borderColor: tc.color }}
-                        >
-                          {tag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Formato (Social Media) */}
-              <div className="popup-section">
-                <div className="popup-section-label">
-                  Formato {errors.format && <span className="error-inline">⚠ obrigatório</span>}
-                  <button className="manage-btn" onClick={() => setManagingFormats((v) => !v)}>
-                    {managingFormats ? 'Fechar' : '⚙ Gerenciar'}
-                  </button>
-                </div>
-                {managingFormats ? (
-                  <ManageGroup
-                    items={availableFormats}
-                    onAdd={onAddFormat}
-                    onDelete={onDeleteFormat}
-                    onRename={onRenameFormat}
-                    tagColors={{ ...FORMAT_COLORS, ...formatColors }}
-                    showColorPicker
-                  />
-                ) : (
-                  <ChipGroup
-                    items={availableFormats}
-                    value={form.format ?? ''}
-                    onChange={(val) => {
-                      saveField('format', val);
-                      if (errors.format) setErrors((prev) => { const e = { ...prev }; delete e.format; return e; });
-                    }}
-                    colorMap={{ ...FORMAT_COLORS, ...formatColors }}
-                    error={errors.format && !form.format}
-                  />
-                )}
-              </div>
-
-              {/* Status (Social Media) */}
-              <div className="popup-section">
-                <div className="popup-section-label">
-                  Status {errors.status && <span className="error-inline">⚠ obrigatório</span>}
-                  <button className="manage-btn" onClick={() => setManagingStatuses((v) => !v)}>
-                    {managingStatuses ? 'Fechar' : '⚙ Gerenciar'}
-                  </button>
-                </div>
-                {managingStatuses ? (
-                  <ManageGroup
-                    items={availableStatuses}
-                    onAdd={onAddStatus}
-                    onDelete={onDeleteStatus}
-                    onRename={onRenameStatus}
-                    tagColors={{ ...STATUS_COLORS, ...statusColors }}
-                    showColorPicker
-                  />
-                ) : (
-                  <ChipGroup
-                    items={availableStatuses}
-                    value={form.status ?? ''}
-                    onChange={(val) => {
-                      saveField('status', val);
-                      if (errors.status) setErrors((prev) => { const e = { ...prev }; delete e.status; return e; });
-                    }}
-                    colorMap={{ ...STATUS_COLORS, ...statusColors }}
-                    error={errors.status && !form.status}
-                  />
-                )}
-              </div>
-
-              {/* Etiquetas (Social Media) — Tag.CheckableTag */}
-              <div className="popup-section">
-                <div className="popup-section-label">
-                  Etiquetas
-                  <button className="manage-btn" onClick={() => setManagingTags((v) => !v)}>
-                    {managingTags ? 'Fechar' : '⚙ Gerenciar'}
-                  </button>
-                </div>
-                {managingTags ? (
-                  <ManageGroup
-                    items={availableTags}
-                    onAdd={onAddTag}
-                    onDelete={onDeleteTag}
-                    onRename={onRenameTag}
-                    tagColors={tagColors}
-                    showColorPicker
-                  />
-                ) : (
-                  <div className="chip-group chip-group-tags">
-                    {availableTags.map((tag) => {
-                      const tc = tagColors[tag] ?? PILLAR_COLORS[tag] ?? { bg: '#EDE7DC', color: '#4338CA' };
-                      const isChecked = (form.tags ?? []).includes(tag);
-                      return (
-                        <Tag.CheckableTag
-                          key={tag}
-                          checked={isChecked}
-                          onChange={() => toggleTag(tag)}
-                          style={isChecked
-                            ? { background: tc.bg, color: tc.color, borderColor: tc.color, fontWeight: 600, fontSize: 12 }
-                            : { background: 'transparent', color: '#8b7e6e', borderColor: '#D0C9BE', fontWeight: 500, fontSize: 12 }
-                          }
-                        >
-                          {tag}
-                        </Tag.CheckableTag>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Descrição / Legenda — Rich Text Editor */}
-          <div className="popup-section">
-            <div className="popup-section-label">Descrição do Post / Legenda</div>
-            <RichTextEditor editor={editor} className={`notes-rte${readOnly ? ' notes-rte-readonly' : ''}`}>
-              {!readOnly && (
-                <RichTextEditor.Toolbar sticky stickyOffset={0}>
-                  <RichTextEditor.ControlsGroup>
-                    <RichTextEditor.Bold />
-                    <RichTextEditor.Italic />
-                    <RichTextEditor.Underline />
-                    <RichTextEditor.Strikethrough />
-                    <RichTextEditor.ClearFormatting />
-                  </RichTextEditor.ControlsGroup>
-                  <RichTextEditor.ControlsGroup>
-                    <RichTextEditor.BulletList />
-                    <RichTextEditor.OrderedList />
-                  </RichTextEditor.ControlsGroup>
-                  <RichTextEditor.ControlsGroup>
-                    <RichTextEditor.Link />
-                    <RichTextEditor.Unlink />
-                  </RichTextEditor.ControlsGroup>
-                </RichTextEditor.Toolbar>
-              )}
-              <RichTextEditor.Content />
-            </RichTextEditor>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: 'none' }}
-            onChange={handleFileAdd}
-          />
+          {/* ── Right: Media viewer ── */}
+          <div className="pm-right">
+            <div className="pm-section-title">Fotos e Vídeos</div>
+
+            {!hasAttachments ? (
+              <div
+                className={`pm-dropzone${dragOver ? ' pm-dropzone--over' : ''}${readOnly ? ' pm-dropzone--readonly' : ''}`}
+                onDragOver={(e) => { if (readOnly) return; e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileDrop(e); }}
+                onClick={() => !readOnly && fileInputRef.current?.click()}
+              >
+                <svg className="pm-dropzone-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#C4C9D4" strokeWidth="1.2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <p className="pm-dropzone-text">
+                  Arraste arquivos aqui ou{' '}
+                  <strong className="pm-dropzone-link" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>clique para selecionar</strong>
+                </p>
+                <span className="pm-dropzone-hint">PNG, JPG, MP4 até 100MB</span>
+              </div>
+            ) : (
+              <div className="pm-gallery">
+                <div className="pm-gallery-main">
+                  {/* Clickable media */}
+                  {activeAtt && (
+                    activeAtt.name?.match(/\.(mp4|mov|webm|avi)$/i)
+                      ? <video src={activeAtt.url} className="pm-gallery-video" controls style={{ opacity: activeAtt.uploading ? 0.5 : 1 }} />
+                      : <img
+                          src={activeAtt.url}
+                          alt={activeAtt.name}
+                          className="pm-gallery-img"
+                          style={{ opacity: activeAtt.uploading ? 0.5 : 1, cursor: 'zoom-in' }}
+                          onClick={() => !activeAtt.uploading && setLightbox(true)}
+                        />
+                  )}
+
+                  {/* Arrows — only when multiple attachments */}
+                  {attachments.length > 1 && (
+                    <>
+                      <button className="pm-gallery-arrow pm-gallery-arrow--prev" onClick={goPrev}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <button className="pm-gallery-arrow pm-gallery-arrow--next" onClick={goNext}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                      <div className="pm-gallery-counter">{safeIdx + 1} / {attachments.length}</div>
+                    </>
+                  )}
+
+                  {activeAtt?.uploading && <div className="pm-gallery-overlay"><div className="pm-spinner" /> Enviando…</div>}
+                  {activeAtt?.error   && <div className="pm-gallery-overlay pm-gallery-error">⚠ Falha no envio</div>}
+                  {!readOnly && activeAtt && (
+                    <button className="pm-gallery-remove" onClick={() => { removeAttachment(activeAtt.id); setCarouselIdx(0); }}>✕</button>
+                  )}
+                </div>
+                {attachments.length > 1 && (
+                  <div className="pm-gallery-thumbs">
+                    {attachments.map((att, i) => (
+                      <button key={att.id} className={`pm-gallery-thumb${i === safeIdx ? ' active' : ''}`} onClick={() => setCarouselIdx(i)}>
+                        <img src={att.url} alt={att.name} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!readOnly && (
+                  <button className="pm-gallery-add" onClick={() => fileInputRef.current?.click()}>+ Adicionar</button>
+                )}
+              </div>
+            )}
+
+            <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={handleFileAdd} />
+          </div>
         </div>
 
-        {/* ── HISTÓRICO (Social Media) ── */}
-        {!readOnly && showHistory && (
-          <div className="history-panel">
-            <div className="history-panel-header">
-              📋 Histórico de Alterações
-              <span className="history-count">{(form.history ?? []).length} registro(s)</span>
-            </div>
-            {(form.history ?? []).length === 0 ? (
-              <p className="history-empty">Nenhuma alteração registrada ainda.</p>
-            ) : (
-              <div className="history-list">
-                {[...(form.history ?? [])].reverse().map((entry) => (
-                  <div key={entry.id} className="history-entry">
-                    <div className="history-entry-time">🕐 {fmtTimestamp(entry.timestamp)}</div>
-                    <ul className="history-changes">
-                      {entry.changes.map((change, i) => (
-                        <li key={i}>{change}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+        {/* ── Lightbox ── */}
+        {lightbox && activeAtt && (
+          <div className="pm-lightbox" onClick={() => setLightbox(false)}>
+            <button className="pm-lightbox-close" onClick={() => setLightbox(false)}>✕</button>
+            {attachments.length > 1 && (
+              <button className="pm-lightbox-arrow pm-lightbox-arrow--prev" onClick={(e) => { e.stopPropagation(); goPrev(); }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            )}
+            <img
+              src={activeAtt.url}
+              alt={activeAtt.name}
+              className="pm-lightbox-img"
+              onClick={(e) => e.stopPropagation()}
+            />
+            {attachments.length > 1 && (
+              <button className="pm-lightbox-arrow pm-lightbox-arrow--next" onClick={(e) => { e.stopPropagation(); goNext(); }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
+            {attachments.length > 1 && (
+              <div className="pm-lightbox-counter">{safeIdx + 1} / {attachments.length}</div>
             )}
           </div>
         )}
 
-      </div>
-      </Splitter.Panel>
-
-      {/* ── PAINEL DIREITO: Mídias ── */}
-      <Splitter.Panel defaultSize="45%" min="30%" className="popup-splitter-right">
-        <div className="carousel-panel">
-
-          <div className="carousel-panel-header">
-            <span className="carousel-panel-title">
-              🖼 Mídias{attachments.length > 0 ? ` (${attachments.length})` : ''}
-            </span>
-            {!readOnly && (
-              <button className="attach-btn" onClick={() => fileInputRef.current.click()}>
-                + Adicionar
-              </button>
-            )}
+        {/* ── Save success toast ── */}
+        {saveSuccess && (
+          <div className="pm-save-toast">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Post salvo com sucesso!
           </div>
+        )}
 
-          {!hasAttachments && (
-            <div className="carousel-empty">
-              <div className="carousel-empty-icon">📷</div>
-              <p>{readOnly ? 'Nenhuma imagem adicionada.' : 'Nenhuma imagem ainda.'}</p>
-              {!readOnly && (
-                <button className="attach-btn-lg" onClick={() => fileInputRef.current.click()}>
-                  + Adicionar imagem
-                </button>
-              )}
-            </div>
-          )}
-
-          {hasAttachments && (
-            <>
-              <div className="carousel-main-wrap">
-                <Image.PreviewGroup>
-                  <Carousel
-                    ref={carouselRef}
-                    afterChange={setCarouselIdx}
-                    arrows
-                    dots={false}
-                    infinite={attachments.length > 1}
-                    className="antd-carousel"
-                  >
-                    {attachments.map((att) => (
-                      <div key={att.id} className="carousel-slide-inner">
-                        <Image
-                          src={att.url}
-                          alt={att.name}
-                          className="carousel-main-img"
-                          style={{ opacity: att.uploading ? 0.5 : 1 }}
-                          preview={!att.uploading && !att.error}
-                          wrapperClassName="carousel-img-wrapper"
-                        />
-                        {att.uploading && (
-                          <div className="att-status-overlay">
-                            <span className="att-spinner" /> Enviando…
-                          </div>
-                        )}
-                        {att.error && (
-                          <div className="att-status-overlay att-error-overlay">⚠ Falha no envio</div>
-                        )}
-                      </div>
-                    ))}
-                  </Carousel>
-                </Image.PreviewGroup>
-
-                {!readOnly && activeAtt && (
-                  <div className="carousel-main-actions">
-                    <button
-                      className={`carousel-cover-btn${activeAtt.id === form.coverId ? ' carousel-cover-btn-active' : ''}`}
-                      onClick={() => !activeAtt.uploading && toggleCover(activeAtt.id)}
-                      disabled={activeAtt.uploading}
-                    >
-                      {activeAtt.id === form.coverId ? '🖼 Capa' : 'Definir capa'}
-                    </button>
-                    <button
-                      className="carousel-remove-btn"
-                      onClick={() => {
-                        removeAttachment(activeAtt.id);
-                        carouselRef.current?.goTo(0);
-                        setCarouselIdx(0);
-                      }}
-                      disabled={activeAtt.uploading}
-                    >× Remover</button>
+        {/* ── Footer Social Media ── */}
+        {!readOnly && (
+          <div className="pm-footer">
+            <button className="pm-btn-cancel" onClick={onClose}>Cancelar</button>
+            {!isNew && (
+              confirmDel
+                ? <div className="pm-del-confirm">
+                    <span>Excluir post?</span>
+                    <button className="pm-del-yes" onClick={() => { onDelete(post); onClose(); }}>✓ Sim</button>
+                    <button className="pm-del-no"  onClick={() => setConfirmDel(false)}>✕ Não</button>
                   </div>
-                )}
-              </div>
-
-              <div className="carousel-counter">
-                <span>{safeIdx + 1} / {attachments.length}</span>
-                {activeAtt && <span className="carousel-filename">{activeAtt.name}</span>}
-              </div>
-
-              {attachments.length > 1 && (
-                <div className="carousel-thumbs">
-                  {attachments.map((att, i) => (
-                    <button
-                      key={att.id}
-                      className={[
-                        'carousel-thumb',
-                        i === safeIdx           ? 'carousel-thumb-active'  : '',
-                        att.id === form.coverId ? 'carousel-thumb-cover'   : '',
-                        att.uploading           ? 'carousel-thumb-loading' : '',
-                      ].join(' ').trim()}
-                      onClick={() => { carouselRef.current?.goTo(i); setCarouselIdx(i); }}
-                      title={att.name}
-                    >
-                      <img src={att.url} alt={att.name} />
-                      {att.id === form.coverId && <span className="carousel-thumb-badge">Capa</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-        </div>
-      </Splitter.Panel>
-      </Splitter>
-
-      {/* ── RODAPÉ CLIENTE ── */}
-      {readOnly && (
-        <div className="popup-footer-review">
-
-          {isInApprovalMode && (
-            <div className="review-progress-bar">
-              <div className="review-progress-label">
-                Revisando post <strong>{approvalIdx + 1}</strong> de <strong>{approvalTotal}</strong>
-              </div>
-              <div className="review-progress-track">
-                <div
-                  className="review-progress-fill"
-                  style={{ width: `${((approvalIdx + 1) / approvalTotal) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {reviewSent && !reviewMode && (
-            <div className="review-sent-feedback">
-              {form.clienteReview === 'aprovado'  && <span className="review-sent-pill review-sent-aprovado">✅ Aprovado!</span>}
-              {form.clienteReview === 'rejeitado' && <span className="review-sent-pill review-sent-rejeitado">❌ Rejeitado</span>}
-              {form.clienteReview === 'ajustes'   && <span className="review-sent-pill review-sent-ajustes">✏️ Ajustes enviados</span>}
-              {isInApprovalMode && <span className="review-sent-next">Avançando…</span>}
-            </div>
-          )}
-
-          {reviewMode === 'rejeitado' && (
-            <div className="review-footer-panel review-footer-rejeitar">
-              <p className="review-footer-panel-label">Motivo da rejeição:</p>
-              <Textarea
-                value={reviewDraft}
-                onChange={(e) => setReviewDraft(e.target.value)}
-                placeholder="Ex.: O texto não representa nossa marca..."
-                minRows={2}
-                autosize
-                autoFocus
-              />
-            </div>
-          )}
-
-          {reviewMode === 'ajustes' && (
-            <div className="review-footer-panel review-footer-ajustes">
-              <p className="review-footer-panel-label">Descreva os ajustes ou considerações:</p>
-              <Textarea
-                value={reviewDraft}
-                onChange={(e) => setReviewDraft(e.target.value)}
-                placeholder="Ex.: Mudar a cor, alterar o texto do CTA..."
-                minRows={2}
-                autosize
-                autoFocus
-              />
-            </div>
-          )}
-
-          {!form.enviadoParaAprovacao && !form.clienteReview && !reviewSent && (
-            <div className="review-not-sent-msg">
-              <span className="review-not-sent-icon">🛠</span>
-              Esse conteúdo ainda está sendo produzido
-            </div>
-          )}
-
-          {!reviewSent && (form.enviadoParaAprovacao || form.clienteReview) && (
-            <div className="review-footer-btns">
-              {!reviewMode ? (
+                : <button className="pm-btn-delete" onClick={() => setConfirmDel(true)} title="Excluir post">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+            )}
+            <div className="pm-footer-right">
+              <span className="pm-footer-count">{captionLen}/2200</span>
+              {isNew ? (
                 <>
-                  <button className="review-footer-btn review-footer-btn-rejeitar"
-                    onClick={() => { setReviewMode('rejeitado'); setReviewDraft(''); }}>
-                    ✗ Rejeitar
-                  </button>
-                  <button className="review-footer-btn review-footer-btn-ajustes"
-                    onClick={() => { setReviewMode('ajustes'); setReviewDraft(form.clienteNotes ?? ''); }}>
-                    ✏ Pedir Ajustes
-                  </button>
-                  <button className="review-footer-btn review-footer-btn-aprovar"
-                    onClick={handleAprovar}>
-                    ✓ Aprovar
-                  </button>
+                  <button className="pm-btn-draft" onClick={handleSaveDraft}>Salvar Rascunho</button>
+                  <button className="pm-btn-schedule" onClick={handleSchedule}>Agendar Post</button>
                 </>
               ) : (
                 <>
-                  <button className="review-footer-btn review-footer-btn-cancel"
-                    onClick={() => setReviewMode(null)}>
-                    ← Voltar
-                  </button>
-                  <button
-                    className={`review-footer-btn ${reviewMode === 'rejeitado' ? 'review-footer-btn-rejeitar' : 'review-footer-btn-ajustes'}`}
-                    onClick={handleConfirmReview}
-                    disabled={!reviewDraft.trim()}
-                  >
-                    {reviewMode === 'rejeitado' ? '✗ Confirmar Rejeição' : '✏ Enviar Ajustes'}
-                  </button>
+                  <button className="pm-btn-draft" onClick={() => { setErrors({}); onSave(formRef.current); triggerSaveSuccess(); }}>✓ Salvar</button>
+                  <button className="pm-btn-schedule" onClick={handleSchedule}>Agendar</button>
                 </>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-        </div>
-      )}
+        {/* ── Footer Client Review ── */}
+        {readOnly && (
+          <div className="pm-footer-review">
+            {isInApprovalMode && (
+              <div className="pm-progress-bar">
+                <div className="pm-progress-label">Post <strong>{approvalIdx + 1}</strong> de <strong>{approvalTotal}</strong></div>
+                <div className="pm-progress-track"><div className="pm-progress-fill" style={{ width: `${((approvalIdx + 1) / approvalTotal) * 100}%` }} /></div>
+              </div>
+            )}
 
-      {/* ── RODAPÉ SOCIAL MEDIA ── */}
-      {!readOnly && (
-        <div className="popup-footer">
-          {!isNew && (
-            <button className="btn-danger" onClick={() => onDelete(post)}>🗑 Excluir</button>
-          )}
-          <div style={{ flex: 1 }} />
-          <button
-            className={`btn-history ${showHistory ? 'btn-history-active' : ''}`}
-            onClick={() => setShowHistory((v) => !v)}
-          >
-            📋 Histórico{(form.history ?? []).length > 0 && ` (${form.history.length})`}
-          </button>
-          {isNew && (
-            <>
-              {hasErrors && (
-                <span className="error-msg" style={{ margin: 0 }}>
-                  ⚠ Preencha os campos obrigatórios.
-                </span>
-              )}
-              <button className="btn-primary" onClick={handleCreate}>
-                ✓ Criar Post
-              </button>
-            </>
-          )}
-        </div>
-      )}
+            {reviewSent && !reviewMode && (
+              <div className="pm-review-sent">
+                {form.clienteReview === 'aprovado'  && <span className="pm-sent-pill pm-sent-ok">✅ Aprovado!</span>}
+                {form.clienteReview === 'rejeitado' && <span className="pm-sent-pill pm-sent-err">❌ Rejeitado</span>}
+                {form.clienteReview === 'ajustes'   && <span className="pm-sent-pill pm-sent-warn">✏️ Ajustes enviados</span>}
+                {isInApprovalMode && <span className="pm-sent-next">Avançando…</span>}
+              </div>
+            )}
 
-    </Modal>
-    </ConfigProvider>
+            {(reviewMode === 'rejeitado' || reviewMode === 'ajustes') && (
+              <div className={`pm-review-panel pm-review-panel--${reviewMode}`}>
+                <p className="pm-review-panel-label">{reviewMode === 'rejeitado' ? 'Motivo da rejeição:' : 'Descreva os ajustes:'}</p>
+                <textarea className="pm-review-textarea" rows={2} autoFocus value={reviewDraft} onChange={(e) => setReviewDraft(e.target.value)} placeholder={reviewMode === 'rejeitado' ? 'Ex.: O texto não representa nossa marca…' : 'Ex.: Mudar o CTA, ajustar a cor…'} />
+              </div>
+            )}
+
+            {!form.enviadoParaAprovacao && !form.clienteReview && !reviewSent && (
+              <div className="pm-review-pending"><span>🛠</span> Esse conteúdo ainda está sendo produzido</div>
+            )}
+
+            {!reviewSent && (form.enviadoParaAprovacao || form.clienteReview) && (
+              <div className="pm-review-btns">
+                {!reviewMode ? (
+                  <>
+                    <button className="pm-review-btn pm-review-btn--reject"  onClick={() => { setReviewMode('rejeitado'); setReviewDraft(''); }}>✗ Rejeitar</button>
+                    <button className="pm-review-btn pm-review-btn--adjust"  onClick={() => { setReviewMode('ajustes'); setReviewDraft(form.clienteNotes ?? ''); }}>✏ Pedir Ajustes</button>
+                    <button className="pm-review-btn pm-review-btn--approve" onClick={() => sendReview('aprovado')}>✓ Aprovar</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="pm-review-btn pm-review-btn--back"    onClick={() => setReviewMode(null)}>← Voltar</button>
+                    <button className={`pm-review-btn pm-review-btn--${reviewMode === 'rejeitado' ? 'reject' : 'adjust'}`} onClick={() => { if (reviewDraft.trim()) sendReview(reviewMode, reviewDraft.trim()); }} disabled={!reviewDraft.trim()}>
+                      {reviewMode === 'rejeitado' ? '✗ Confirmar Rejeição' : '✏ Enviar Ajustes'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
